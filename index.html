@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#172846">
   <title>Bina Cendekia — Admin Absensi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +31,7 @@
   html{scroll-padding-top:env(safe-area-inset-top,0px);}
   #loginPage{
     min-height:100vh;
+    min-height:100dvh;
     font-family:'Source Sans 3','Segoe UI',Helvetica,Arial,sans-serif;
     background:var(--cream);
     color:var(--ink);
@@ -383,7 +385,7 @@
       color: #17233f;
     }
     button, input, select { font: inherit; }
-    .app { min-height: 100vh; display: flex; }
+    .app { min-height: 100vh; min-height: 100dvh; display: flex; }
     .sidebar {
       width: 240px; background: #172846; color: white; padding: 22px 14px;
       position: fixed; inset: 0 auto 0 0; z-index: 10;
@@ -404,7 +406,7 @@
     }
     .nav-item:hover, .nav-item.active { background: #3978ee; color: #fff; }
     .nav-item span:first-child { width: 20px; text-align: center; font-size: 19px; }
-    .main { margin-left: 240px; width: calc(100% - 240px); }
+    .main { margin-left: 240px; width: calc(100% - 240px); min-width: 0; }
     .topbar {
       height: 64px; background: white; border-bottom: 1px solid #e8edf5;
       display: flex; align-items: center; justify-content: flex-end; gap: 20px; padding: 0 28px;
@@ -421,7 +423,7 @@
       background:#fff; border:1px solid #e5eaf2; padding:13px 17px; border-radius:8px;
       font-weight:700; color:#4d5b72; font-size:13px;
     }
-    .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:17px; margin-bottom:18px; }
+    .stats { display:grid; grid-template-columns:repeat(2, 1fr); gap:17px; margin-bottom:18px; }
     .card { background:#fff; border:1px solid #e5eaf2; border-radius:10px; box-shadow:0 2px 8px rgba(25,45,80,.025); }
     .stat { padding:18px; display:flex; align-items:center; gap:15px; min-height:108px; }
     .stat-icon { width:48px; height:48px; border-radius:50%; display:grid; place-items:center; font-size:23px; flex:none; }
@@ -561,6 +563,164 @@
       .date { font-size:12px; padding:10px 13px; }
     }
   
+
+    /* ===================================================================
+       PENYESUAIAN RESPONSIF LANJUTAN
+       HP (<=480) · HP besar (<=640) · Tablet (<=900) · Laptop · Layar besar
+       =================================================================== */
+    html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+    img { max-width:100%; }
+    button, .nav-item, .link, .quick { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    body.no-scroll, body:has(.modal.show) { overflow:hidden; }
+
+    /* --- Elemen umum yang aman di semua ukuran --- */
+    .topbar { position:sticky; top:env(safe-area-inset-top,0px); z-index:8; }
+    .sidebar {
+      overflow-y:auto; overscroll-behavior:contain;
+      padding-top:calc(22px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));
+    }
+    .heading { flex-wrap:wrap; gap:12px; }
+    .section-title { flex-wrap:wrap; gap:6px 12px; }
+    .filter-row select { flex:1 1 160px; min-width:140px; }
+    .edit { white-space:nowrap; }
+    .schedule-info { min-width:0; }
+    .room { white-space:nowrap; }
+    .stat > div { min-width:0; }
+    #sppStatTotalRp { overflow-wrap:anywhere; }
+    .modal-box { max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); overflow-y:auto; }
+    .recap table { min-width:0; }
+    .recap th, .recap td { text-align:center; }
+    .recap th:first-child, .recap td:first-child { text-align:left; white-space:nowrap; }
+
+    /* --- Layar sentuh: tombol & isian lebih mudah ditekan, tanpa zoom otomatis iOS --- */
+    @media (pointer:coarse) {
+      .field-input input, .form-row input, .form-row select, .filter-row select { font-size:16px; }
+      .form-row input, .form-row select, .filter-row select { min-height:44px; }
+      .btn { min-height:44px; }
+      .edit { min-height:36px; padding:8px 14px; }
+      .nav-item { min-height:48px; }
+      .menu-toggle { min-width:44px; min-height:44px; justify-content:center; }
+      .btn-primary { min-height:46px; }
+    }
+
+    /* --- Menu samping (drawer) di HP/tablet: bayangan tidak bocor saat tertutup --- */
+    @media (max-width:900px) {
+      .sidebar { transition:transform .25s ease, visibility 0s linear .25s; }
+      .sidebar.open { transition:transform .25s ease, visibility 0s; }
+      .sidebar:not(.open) { box-shadow:none; visibility:hidden; }
+    }
+
+    /* --- Laptop kecil / tablet landscape (901-1100): sidebar lebih ramping --- */
+    @media (min-width:901px) and (max-width:1100px) {
+      .sidebar { width:210px; padding-left:10px; padding-right:10px; }
+      .main { margin-left:210px; width:calc(100% - 210px); }
+      .content { padding:22px 20px 30px; }
+      .topbar { padding:0 20px; }
+      .nav-item { padding:12px; gap:12px; }
+    }
+
+    /* --- Tablet portrait (641-1050): tombol Aksi Cepat 4 kolom --- */
+    @media (min-width:641px) and (max-width:1050px) {
+      .quick-grid { grid-template-columns:repeat(4,1fr); }
+      .quick { min-height:76px; }
+    }
+
+    /* --- Laptop & desktop: 4 kartu statistik, teks tabel lebih lega --- */
+    @media (min-width:1200px) {
+      th, td { font-size:13px; }
+      .status { font-size:12px; }
+      .edit { font-size:12px; }
+      .section-title h2 { font-size:19px; }
+      .schedule-info strong { font-size:13px; }
+      .schedule-info small, .room { font-size:11px; }
+    }
+    @media (min-width:1280px) {
+      .stats { grid-template-columns:repeat(4,1fr); }
+    }
+    @media (min-width:1600px) {
+      .sidebar { width:260px; }
+      .main { margin-left:260px; width:calc(100% - 260px); }
+      .content { max-width:1680px; padding:30px 40px 44px; }
+      .heading h1 { font-size:32px; }
+    }
+
+    /* --- HP besar & tablet kecil (<=640): tabel jadi kartu, popup jadi bottom-sheet --- */
+    @media (max-width:640px) {
+      .section { padding:14px; }
+      .section-title h2 { font-size:16px; }
+      .card.quote { padding:18px 12px; }
+
+      .table-wrap.stack { overflow:visible; }
+      .table-wrap.stack table { min-width:0; }
+      .table-wrap.stack thead { display:none; }
+      .table-wrap.stack tbody { display:block; }
+      .table-wrap.stack tbody tr {
+        display:block; background:#fff; border:1px solid #e5eaf2; border-radius:10px;
+        padding:4px 14px; margin-bottom:10px;
+      }
+      .table-wrap.stack td {
+        display:flex; justify-content:space-between; align-items:center; gap:14px;
+        border:0; border-bottom:1px dashed #edf1f6; padding:9px 0;
+        text-align:right; font-size:13px;
+      }
+      .table-wrap.stack td:last-child { border-bottom:0; }
+      .table-wrap.stack td::before {
+        content:attr(data-label); flex:none; text-align:left;
+        font-weight:800; font-size:12px; color:#5d6c84;
+      }
+      .table-wrap.stack td:not([data-label])::before { content:none; }
+      .table-wrap.stack td[data-label="No"] { display:none; }
+      .table-wrap.stack tr.empty-row { border-style:dashed; }
+      .table-wrap.stack tr.empty-row td { justify-content:center; text-align:center; padding:18px 6px; line-height:1.5; }
+
+      .recap th, .recap td { padding:9px 4px; font-size:11px; }
+
+      .modal { align-items:flex-end; padding:0; }
+      .modal-box {
+        width:100%; border-radius:18px 18px 0 0;
+        max-height:92vh; max-height:92dvh;
+        padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px));
+      }
+      .modal-actions .btn { flex:1; padding:12px 15px; }
+
+      .date { width:100%; }
+    }
+
+    /* --- HP (<=480): kartu statistik ditata vertikal supaya tidak sesak --- */
+    @media (max-width:480px) {
+      .stat { flex-wrap:wrap; align-items:center; row-gap:8px; }
+      .stat-icon { order:1; }
+      .stat > span { order:2; margin-left:auto; }
+      .stat > div:not(.stat-icon) { order:3; flex:1 1 100%; }
+      .content { padding:16px 12px 28px; }
+      .filter-row select { flex:0 0 auto; width:100%; min-width:0; }
+    }
+
+    /* --- Halaman login --- */
+    @media (max-width:1100px) {
+      .hero-mid { grid-template-columns:1fr; }
+    }
+    @media (max-width:860px) {
+      .screen { min-height:100vh; min-height:100dvh; }
+      .panel { order:-1; width:100%; min-width:0; max-width:100%; padding:32px 20px 28px; }
+      .login-card { max-width:420px; }
+      .hero { flex:1 0 auto; min-height:0; padding:28px 22px 22px; }
+      .hero-sub { max-width:none; }
+    }
+    @media (max-width:420px) {
+      h2.card-title { font-size:21px; }
+      .card-sub { margin-bottom:22px; }
+    }
+    @media (max-height:520px) and (orientation:landscape) {
+      .panel { padding-top:20px; padding-bottom:20px; }
+      .card-badge { margin-bottom:12px; }
+      .card-sub { margin-bottom:16px; }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      * { transition:none !important; scroll-behavior:auto !important; }
+    }
   </style>
 </head>
 <body>
@@ -745,7 +905,7 @@
         <div>
           <div class="card section">
             <div class="section-title"><h2>Absensi Hari Ini</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
-            <div class="table-wrap">
+            <div class="table-wrap stack">
               <table>
                 <thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Jam Masuk</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody id="attendanceBody"><tr class="empty-row"><td colspan="6">Memuat data…</td></tr></tbody>
@@ -818,7 +978,7 @@
               <option value="Belum Lunas">Belum Lunas</option>
             </select>
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap stack">
             <table>
               <thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Bulan</th><th>Nominal</th><th>Status</th><th>Tgl Bayar</th><th>Aksi</th></tr></thead>
               <tbody id="sppBody"><tr class="empty-row"><td colspan="8">Memuat data…</td></tr></tbody>
@@ -1056,11 +1216,11 @@ function renderLaporanSPP() {
   body.innerHTML = data.map((r, i) => {
     const clsStatus = String(r.Status).trim() === "Lunas" ? "lunas" : "belumlunas";
     return `<tr>
-      <td>${i + 1}</td><td><strong>${escapeHtml(r.Nama)}</strong></td><td>${escapeHtml(r.Kelas)}</td>
-      <td>${escapeHtml(r.Bulan)}</td><td>${formatRupiah(r.Nominal)}</td>
-      <td><span class="status ${clsStatus}">${escapeHtml(r.Status)}</span></td>
-      <td>${escapeHtml(r.TanggalBayar || "-")}</td>
-      <td><button class="edit" onclick="openSppModal('${r.ID}')">✎ Ubah</button></td>
+      <td data-label="No">${i + 1}</td><td data-label="Nama Siswa"><strong>${escapeHtml(r.Nama)}</strong></td><td data-label="Kelas">${escapeHtml(r.Kelas)}</td>
+      <td data-label="Bulan">${escapeHtml(r.Bulan)}</td><td data-label="Nominal">${formatRupiah(r.Nominal)}</td>
+      <td data-label="Status"><span class="status ${clsStatus}">${escapeHtml(r.Status)}</span></td>
+      <td data-label="Tgl Bayar">${escapeHtml(r.TanggalBayar || "-")}</td>
+      <td data-label="Aksi"><button class="edit" onclick="openSppModal('${r.ID}')">✎ Ubah</button></td>
     </tr>`;
   }).join("");
 }
@@ -1160,9 +1320,9 @@ function renderTabelAbsensi() {
   body.innerHTML = absensiHariIni.map((r, i) => {
     const cls = String(r.Status || "").toLowerCase();
     return `<tr>
-      <td>${i + 1}</td><td><strong>${escapeHtml(r.Nama)}</strong></td><td>${escapeHtml(r.Kelas)}</td><td>${escapeHtml(r.JamMasuk)}</td>
-      <td><span class="status ${cls}">${escapeHtml(r.Status)}</span></td>
-      <td><button class="edit" onclick="editStatus('${r.ID}', '${escapeAttr(r.Status)}')">✎ Ubah</button></td>
+      <td data-label="No">${i + 1}</td><td data-label="Nama Siswa"><strong>${escapeHtml(r.Nama)}</strong></td><td data-label="Kelas">${escapeHtml(r.Kelas)}</td><td data-label="Jam Masuk">${escapeHtml(r.JamMasuk)}</td>
+      <td data-label="Status"><span class="status ${cls}">${escapeHtml(r.Status)}</span></td>
+      <td data-label="Aksi"><button class="edit" onclick="editStatus('${r.ID}', '${escapeAttr(r.Status)}')">✎ Ubah</button></td>
     </tr>`;
   }).join("");
 }
@@ -1323,12 +1483,14 @@ function scrollToJadwal() {
 }
 
 function toggleSidebar() {
-  document.querySelector(".sidebar").classList.toggle("open");
-  document.getElementById("sidebarOverlay").classList.toggle("show");
+  const terbuka = document.querySelector(".sidebar").classList.toggle("open");
+  document.getElementById("sidebarOverlay").classList.toggle("show", terbuka);
+  document.body.classList.toggle("no-scroll", terbuka);
 }
 function closeSidebar() {
   document.querySelector(".sidebar").classList.remove("open");
   document.getElementById("sidebarOverlay").classList.remove("show");
+  document.body.classList.remove("no-scroll");
 }
 
 async function saveAttendance() {
@@ -1373,6 +1535,12 @@ document.getElementById("modal").addEventListener("click", e => { if (e.target.i
 document.getElementById("siswaModal").addEventListener("click", e => { if (e.target.id === "siswaModal") closeSiswaModal(); });
 document.getElementById("kelasModal").addEventListener("click", e => { if (e.target.id === "kelasModal") closeKelasModal(); });
 document.getElementById("sppModal").addEventListener("click", e => { if (e.target.id === "sppModal") closeSppModal(); });
+
+window.addEventListener("resize", () => { if (window.innerWidth > 900) closeSidebar(); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  closeSidebar(); closeModal(); closeSiswaModal(); closeKelasModal(); closeSppModal();
+});
 
 
 </script>
@@ -1448,4 +1616,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-'updateloginadmin'
