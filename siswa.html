@@ -1138,7 +1138,7 @@ function renderBeranda() {
 
   // tabel absensi bulan ini (+ ringkasan)
   const body = $("absensiBody");
-  const hitung = st => absensiBulan.filter(r => String(r.Status).trim() === st).length;
+  const hitung = st => absensiBulan.filter(r => String(r.Status).trim().toLowerCase() === st.toLowerCase()).length;
   $("rekapBulan").innerHTML = `<span class="chip">${escapeHtml(labelBulanIni())}</span>` +
     (dataSudahDimuat ? ["Hadir", "Izin", "Sakit", "Alfa"].map(st => `<span class="status ${st.toLowerCase()}">${st} ${hitung(st)}</span>`).join("") : "");
   if (!dataSudahDimuat) {
