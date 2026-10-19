@@ -740,6 +740,10 @@
       max-width:min(92vw,420px); box-shadow:0 10px 30px rgba(23,40,70,.3); opacity:0; pointer-events:none; transition:.25s; z-index:60; }
     .toast.show { opacity:1; transform:translate(-50%,0); }
     .toast.error { background:#d93c47; }
+    .diagnosa { margin-top:24px; border-top:1px dashed #dce3ed; padding-top:14px; font-size:13px; color:#65738b; }
+    .diagnosa summary { cursor:pointer; font-weight:700; }
+    .diagnosa pre { white-space:pre-wrap; word-break:break-word; background:#f6f8fc; border:1px solid #e5eaf2; border-radius:10px;
+      padding:12px; font-size:12px; line-height:1.65; margin:12px 0; color:#273957; font-family:ui-monospace,Menlo,Consolas,monospace; }
     .week-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }
     .section.today { border-color:#3978ee; box-shadow:0 0 0 2px rgba(57,120,238,.12); }
     .profile-card { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
@@ -888,6 +892,11 @@
             <button class="btn primary" onclick="loadData()">↻ Muat Ulang Data</button>
             <button class="btn danger" onclick="handleLogout()">Keluar</button>
           </div>
+          <details class="diagnosa" id="diagnosa" ontoggle="renderDiagnosa()">
+            <summary>Info teknis (untuk admin)</summary>
+            <pre id="diagnosaIsi">Memuat…</pre>
+            <button class="btn" onclick="salinDiagnosa()">Salin laporan</button>
+          </details>
         </div>
       </div>
     </section>
@@ -901,6 +910,7 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
+const VERSI_HALAMAN = "2026-10-19-diagnosa";
 const namaHari = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
 const urutanHari = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
 const namaBulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -912,6 +922,7 @@ const warnaKelas = [
 let siswa = null;               // { id, nama }
 let kelasList = [], siswaKelasList = [], absensiHariIni = [], sppList = [];
 let absensiBulanIni = [], waktuServer = null, pengaturanAbsen = null;
+let terakhirDimuat = null, galatMuat = "";
 let dataSudahDimuat = false;
 
 /* ---------- util ---------- */
@@ -973,15 +984,26 @@ async function loadData() {
     pengaturanAbsen = data.pengaturanAbsen || null;
     sppList = data.spp || [];
     dataSudahDimuat = true;
+    terakhirDimuat = new Date(); galatMuat = "";
     renderSemua();
   } catch (err) {
     console.error(err);
+    galatMuat = String(err && err.message ? err.message : err);
+    renderDiagnosa();
     tampilkanBanner(`<div class="error-banner"><strong>⚠ Gagal memuat data</strong>Periksa koneksi internet kamu lalu tekan "Muat Ulang". Detail: ${escapeHtml(err.message || err)}</div>`);
   }
 }
 
 /* ---------- data milik siswa yang sedang login ---------- */
+// Server versi baru hanya mengirim data milik siswa yang login (disaring di server berdasarkan akunnya),
+// jadi tidak perlu dicocokkan lagi dengan nama yang tersimpan di browser (nama itu bisa tertinggal
+// bila nama akun diubah setelah login). Untuk server versi lama, pencocokan nama tetap dipakai.
+function serverBaru() { return !!waktuServer; }
+
 function dataSaya() {
+  if (serverBaru()) {
+    return { kelasSaya: kelasList, absensiSaya: absensiHariIni, absensiBulan: absensiBulanIni, sppSaya: sppList };
+  }
   const n = norm(siswa && siswa.nama);
   const kode = Array.from(new Set(siswaKelasList.filter(s => norm(s.Nama) === n).map(s => String(s.KodeKelas).trim())));
   return {
@@ -1029,7 +1051,7 @@ function kontrolAbsen(k) {
   if (!pengaturanAbsen || !pengaturanAbsen.aktif) return "";
   if (!hariCocok(k.Hari, hariIniNama())) return "";
   const kode = String(k.Kode).trim();
-  const rec = absensiHariIni.find(r => norm(r.Nama) === norm(siswa.nama) && String(r.Kelas).split(" - ")[0].trim() === kode);
+  const rec = absensiHariIni.find(r => (serverBaru() || norm(r.Nama) === norm(siswa.nama)) && String(r.Kelas).split(" - ")[0].trim() === kode);
   if (rec) {
     const cls = String(rec.Status || "").toLowerCase();
     return `<div class="absen-row"><span class="status ${cls}">${escapeHtml(rec.Status)}</span><span class="absen-info">Tercatat pukul ${escapeHtml(rec.JamMasuk)}</span></div>`;
@@ -1230,6 +1252,57 @@ function renderProfil() {
   $("profKelas").innerHTML = kelasSaya.length
     ? kelasSaya.map(k => `<span class="chip">${escapeHtml(k.Kode)} · ${escapeHtml(k.MataPelajaran)}</span>`).join("")
     : `<span style="color:#8b98ad;font-weight:600">Belum ada</span>`;
+  renderDiagnosa();
+}
+
+// Laporan singkat agar admin bisa melihat sendiri kenapa data kosong (tanpa membuka DevTools)
+function laporanDiagnosa() {
+  const dua = n => String(n).padStart(2, "0");
+  const baru = serverBaru();
+  const { kelasSaya, absensiBulan, sppSaya } = dataSaya();
+  const t = terakhirDimuat;
+  const alamat = String(API_URL).replace(/\/exec.*$/, "").slice(-8);
+  const baris = [
+    `Versi halaman : ${VERSI_HALAMAN}`,
+    `Nama akun     : ${siswa.nama}`,
+    `ID            : ${siswa.id}`,
+    `Server        : ${!dataSudahDimuat ? "belum ada jawaban" : baru ? "BARU (data disaring per siswa di server)" : "LAMA (belum diperbarui)"}`,
+    `Alamat server : ...${alamat}`,
+    `Dimuat terakhir: ${t ? `${dua(t.getHours())}:${dua(t.getMinutes())}:${dua(t.getSeconds())}` : "-"}`
+  ];
+  if (waktuServer) baris.push(`Waktu server  : ${waktuServer.tanggal} (${waktuServer.hari}) ${jamDariMenit(waktuServer.menit)}`);
+  if (galatMuat) baris.push(`Galat         : ${galatMuat}`);
+  baris.push("Diterima dari server:");
+  baris.push(`  kelas ${kelasList.length}, daftar siswa-kelas ${siswaKelasList.length}, absensi hari ini ${absensiHariIni.length}, absensi bulan ini ${absensiBulanIni.length}, SPP ${sppList.length}`);
+  if (!baru) baris.push(`Setelah dicocokkan dengan nama akun: kelas ${kelasSaya.length}, absensi bulan ini ${absensiBulan.length}, SPP ${sppSaya.length}`);
+
+  let kesimpulan;
+  if (galatMuat) kesimpulan = "Gagal memuat data dari server. Periksa koneksi internet dan alamat server (API_URL).";
+  else if (!dataSudahDimuat) kesimpulan = "Data belum dimuat. Tekan Muat Ulang Data.";
+  else if (!baru) kesimpulan = "Server masih versi LAMA. Pastikan API_URL di siswa.html sama dengan Web app URL deployment terbaru di Apps Script (Deploy > Manage deployments).";
+  else if (!kelasSaya.length && !absensiBulan.length && !sppSaya.length) kesimpulan = "Server tidak menemukan data atas nama akun ini. Samakan nama akun dengan nama di Google Sheets, lalu login ulang.";
+  else if (!absensiBulan.length) kesimpulan = "Kelas ditemukan, tetapi belum ada catatan absensi bulan ini.";
+  else kesimpulan = "Data diterima dengan baik.";
+  baris.push("", "Kesimpulan: " + kesimpulan);
+  return baris.join("\n");
+}
+
+function renderDiagnosa() {
+  const el = $("diagnosaIsi");
+  if (el && siswa) el.textContent = laporanDiagnosa();
+}
+
+async function salinDiagnosa() {
+  const el = $("diagnosaIsi");
+  renderDiagnosa();
+  try {
+    await navigator.clipboard.writeText(el.textContent);
+    tampilkanToast("✓ Laporan disalin. Tempel di chat.");
+  } catch (e) {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    tampilkanToast("Teks dipilih. Tekan Ctrl+C untuk menyalin.");
+  }
 }
 
 /* ---------- navigasi ---------- */
@@ -1259,7 +1332,7 @@ setInterval(() => { if (siswa && dataSudahDimuat && !document.hidden) { renderBe
 document.addEventListener("visibilitychange", () => { if (!document.hidden && siswa) loadData(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeSidebar(); });
 
-Object.assign(window, { handleLogout, absenSekarang, showPage, toggleSidebar, closeSidebar, loadData, renderSPP });
+Object.assign(window, { handleLogout, absenSekarang, salinDiagnosa, renderDiagnosa, showPage, toggleSidebar, closeSidebar, loadData, renderSPP });
 
 /* ===== Sesi & keamanan halaman (login dilakukan di index.html) ===== */
 function ambilSesi() {
