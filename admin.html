@@ -734,6 +734,39 @@
       background:#172846; color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; font-size:14px; text-align:center;
       max-width:min(92vw,420px); box-shadow:0 10px 30px rgba(23,40,70,.3); opacity:0; pointer-events:none; transition:.25s; z-index:60; }
     .toast.show { opacity:1; transform:translate(-50%,0); }
+
+    /* ===== Absensi Harian ===== */
+    .layout > * { min-width:0; }          /* kolom boleh menyusut; tab hari bergulir di dalam kartunya */
+    .card.section { min-width:0; }
+    .harian-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .nav-minggu { width:34px; height:34px; border:1px solid #dce3ed; background:#fff; border-radius:10px; font-size:18px; line-height:1; cursor:pointer; color:#4a5b78; }
+    .nav-minggu:hover { background:#f2f6ff; }
+    .minggu-label { font-weight:800; color:#273957; font-size:14px; min-width:150px; text-align:center; }
+    .harian-bar input[type=date] { margin-left:auto; padding:7px 10px; border:1px solid #dce3ed; border-radius:10px; font:inherit; font-size:13px; color:#273957; background:#fff; }
+    .btn-kecil { background:#eef3ff; color:#3978ee; border:0; border-radius:10px; padding:9px 13px; font:inherit; font-weight:800; font-size:12.5px; cursor:pointer; }
+    .hari-tabs { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px; }
+    .hari-tab { border:1px solid #e1e8f2; background:#fff; border-radius:12px; padding:8px 2px; text-align:center; cursor:pointer; font:inherit; color:#4a5b78; }
+    .hari-tab .nm { display:block; font-size:11.5px; font-weight:700; }
+    .hari-tab .tg { display:block; font-size:16px; font-weight:800; color:#273957; }
+    .hari-tab .jm { display:block; font-size:10.5px; color:#8b98ad; font-weight:700; margin-top:1px; min-height:13px; }
+    .hari-tab:hover { border-color:#3978ee; }
+    .hari-tab.hari-ini:not(.aktif) { border-color:#3978ee; }
+    .hari-tab.depan { opacity:.5; }
+    .hari-tab.aktif { background:#3978ee; border-color:#3978ee; }
+    .hari-tab.aktif .nm, .hari-tab.aktif .tg, .hari-tab.aktif .jm { color:#fff; }
+    .ringkas-hari { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; font-size:13px; color:#4a5b78; font-weight:700; }
+    .aksi-harian { margin-top:14px; }
+    .belum-tercatat { margin-top:14px; border:1px dashed #e3c76b; background:#fffaf0; border-radius:12px; padding:10px 14px; }
+    .belum-tercatat summary { cursor:pointer; font-weight:800; color:#b98200; font-size:13px; }
+    #belumTercatatList { max-height:280px; overflow:auto; margin-top:8px; }
+    .belum-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #f1e6c4; font-size:13px; }
+    .belum-item:last-child { border-bottom:0; }
+    @media (max-width:560px) {
+      .hari-tabs { display:flex; overflow-x:auto; padding-bottom:4px; }
+      .hari-tab { min-width:56px; flex:none; }
+      .harian-bar input[type=date] { margin-left:0; flex:1; min-width:0; }
+      .minggu-label { min-width:0; flex:1; }
+    }
   </style>
 </head>
 <body>
@@ -778,13 +811,27 @@
       <div class="layout">
         <div>
           <div class="card section">
-            <div class="section-title"><h2>Absensi Hari Ini</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
+            <div class="section-title"><h2>Absensi Harian</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
+            <div class="harian-bar">
+              <button class="nav-minggu" onclick="geserMinggu(-1)" aria-label="Minggu sebelumnya">‹</button>
+              <div class="minggu-label" id="mingguLabel">—</div>
+              <button class="nav-minggu" onclick="geserMinggu(1)" aria-label="Minggu berikutnya">›</button>
+              <input type="date" id="pilihTanggal" onchange="pilihTanggalHarian(this.value)" aria-label="Pilih tanggal">
+              <button class="btn-kecil" onclick="keHariIni()">Hari ini</button>
+            </div>
+            <div class="hari-tabs" id="hariTabs"></div>
+            <div class="ringkas-hari" id="ringkasHari"></div>
             <div class="table-wrap stack">
               <table>
                 <thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Jam Masuk</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody id="attendanceBody"><tr class="empty-row"><td colspan="6">Memuat data…</td></tr></tbody>
               </table>
             </div>
+            <div class="aksi-harian"><button class="btn primary" onclick="bukaCatatAbsensi()">+ Catat Absensi</button></div>
+            <details class="belum-tercatat" id="belumTercatat" style="display:none">
+              <summary id="belumTercatatJudul">Belum tercatat</summary>
+              <div id="belumTercatatList"></div>
+            </details>
           </div>
 
           <div class="card section recap">
@@ -803,7 +850,7 @@
             <div class="section-title"><h2>Aksi Cepat</h2></div>
             <div class="quick-grid">
               <button class="quick q1" onclick="openSiswaModal()">👤＋<span>Tambah Siswa</span></button>
-              <button class="quick q2" onclick="openModal('Absensi Hari Ini')">☑<span>Absensi Hari Ini</span></button>
+              <button class="quick q2" onclick="bukaCatatAbsensi()">☑<span>Catat Absensi</span></button>
               <button class="quick q3" onclick="showPage('jadwal')">▦<span>Lihat Jadwal</span></button>
               <button class="quick q4" onclick="showPage('laporan')">▥<span>Laporan SPP</span></button>
             </div>
@@ -883,9 +930,11 @@
 
 <div class="modal" id="modal">
   <div class="modal-box">
-    <h2 id="modalTitle">Absensi Hari Ini</h2>
-    <div class="form-row"><label>Nama Siswa</label><input id="studentName" placeholder="Masukkan nama siswa"></div>
-    <div class="form-row"><label>Kelas</label><select id="kelasSelect"><option value="">-- Pilih Kelas --</option></select></div>
+    <h2 id="modalTitle">Catat Absensi</h2>
+    <div class="form-row"><label>Tanggal</label><input type="date" id="absenTanggal" onchange="perbaruiInfoAbsen(true)"></div>
+    <div class="form-row"><label>Kelas</label><select id="kelasSelect" onchange="isiPilihanSiswa(); perbaruiInfoAbsen(true)"><option value="">-- Pilih Kelas --</option></select></div>
+    <div class="form-row"><label>Nama Siswa</label><select id="studentName" onchange="perbaruiInfoAbsen(true)"><option value="">-- Pilih kelas dulu --</option></select></div>
+    <div class="hint-box" id="absenInfo"></div>
     <div class="form-row"><label>Status Kehadiran</label><select id="status"><option>Hadir</option><option>Izin</option><option>Sakit</option><option>Alfa</option></select></div>
     <div class="modal-actions"><button class="btn cancel" onclick="closeModal()">Batal</button><button class="btn primary" id="saveBtn" onclick="saveAttendance()">Simpan</button></div>
   </div>
@@ -943,10 +992,11 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
+let tanggalDipilih = "", absensiRentang = [], rentangDidukung = false, rentangDimuat = null, waktuServerAdmin = null, pilihanManual = false;
 let siswaKelasList = [];
 let absensiHariIni = [];
 let rekapMinggu = null;
@@ -997,7 +1047,9 @@ async function loadData() {
     return;
   }
   try {
-    const res = await fetch(API_URL + "?token=" + encodeURIComponent(tokenSesi()));
+    if (!tanggalDipilih) tanggalDipilih = hariIniStr();
+    const rg = rentangMingguDipilih();
+    const res = await fetch(API_URL + "?token=" + encodeURIComponent(tokenSesi()) + "&dari=" + rg.dari + "&sampai=" + rg.sampai);
     const data = await res.json();
     if (data.kodeError === "SESI") { sesiBerakhir(); return; }
     if (!data.success) throw new Error(data.error || "Gagal memuat data");
@@ -1006,6 +1058,16 @@ async function loadData() {
     pengaturanAbsenInfo = data.pengaturanAbsen || null;
     siswaKelasList = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
+    waktuServerAdmin = data.waktuServer || null;
+    rentangDidukung = Array.isArray(data.absensiRentang);
+    absensiRentang = rentangDidukung ? data.absensiRentang : absensiHariIni;
+    rentangDimuat = data.rentang || null;
+    // "hari ini" mengikuti jam server; bila berbeda dari perkiraan awal dan belum dipilih manual, sesuaikan
+    if (!pilihanManual && waktuServerAdmin && waktuServerAdmin.tanggal && tanggalDipilih !== waktuServerAdmin.tanggal) {
+      const mingguLama = awalMinggu(tanggalDipilih);
+      tanggalDipilih = waktuServerAdmin.tanggal;
+      if (awalMinggu(tanggalDipilih) !== mingguLama) { return loadData(); }
+    }
     rekapMinggu = data.rekapMinggu || null;
     totalSiswa = hitungTotalSiswa(siswaKelasList, data.totalSiswa);
     sppList = data.spp || [];
@@ -1217,20 +1279,195 @@ function renderStats() {
   document.getElementById("pillAlfa").textContent = pct(alfa);
 }
 
-function renderTabelAbsensi() {
-  const body = document.getElementById("attendanceBody");
-  if (!absensiHariIni.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="6">Belum ada data absensi hari ini. Tambahkan lewat tombol "Absensi Hari Ini".</td></tr>`;
-    return;
+/* ===== Absensi Harian ===== */
+const namaHariPanjang = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const hariPendekAdm = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+const bulanPendekAdm = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+function tglKeStr(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function strKeTgl(s) { const p = String(s).split("-"); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12, 0, 0); }
+function tambahHari(s, n) { const d = strKeTgl(s); d.setDate(d.getDate() + n); return tglKeStr(d); }
+function awalMinggu(s) { const d = strKeTgl(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return tglKeStr(d); }   // Senin
+function hariIniStr() { return waktuServerAdmin && waktuServerAdmin.tanggal ? waktuServerAdmin.tanggal : tglKeStr(new Date()); }
+function namaHariDariTanggal(s) { return namaHariPanjang[strKeTgl(s).getDay()]; }
+function labelTanggalPanjang(s) { const d = strKeTgl(s); return `${namaHariPanjang[d.getDay()]}, ${d.getDate()} ${namaBulan[d.getMonth()]} ${d.getFullYear()}`; }
+function rentangMingguDipilih() { const dari = awalMinggu(tanggalDipilih || hariIniStr()); return { dari, sampai: tambahHari(dari, 6) }; }
+function labelMinggu(dari) {
+  const a = strKeTgl(dari), z = strKeTgl(tambahHari(dari, 6));
+  return a.getMonth() === z.getMonth()
+    ? `${a.getDate()} – ${z.getDate()} ${bulanPendekAdm[z.getMonth()]} ${z.getFullYear()}`
+    : `${a.getDate()} ${bulanPendekAdm[a.getMonth()]} – ${z.getDate()} ${bulanPendekAdm[z.getMonth()]} ${z.getFullYear()}`;
+}
+
+function normNamaAdm(s) { return String(s == null ? "" : s).trim().replace(/\s+/g, " ").toLowerCase(); }
+function kodeDariKelas(k) { return String(k == null ? "" : k).split(" - ")[0].trim(); }
+function hariCocokAdm(field, hari) {
+  return String(field == null ? "" : field).split(/[,;]/).map(h => h.trim().toLowerCase()).includes(String(hari).toLowerCase());
+}
+
+// catatan pada satu tanggal (server lama hanya punya data hari ini)
+function dataTanggal(s) {
+  if (rentangDidukung) return absensiRentang.filter(r => r.Tanggal === s);
+  return s === hariIniStr() ? absensiHariIni : [];
+}
+function absensiTersimpan(tanggal, kode, nama) {
+  const sumber = rentangDidukung ? absensiRentang : absensiHariIni;
+  return sumber.find(r => (rentangDidukung ? r.Tanggal === tanggal : tanggal === hariIniStr()) &&
+    normNamaAdm(r.Nama) === normNamaAdm(nama) && kodeDariKelas(r.Kelas) === kode);
+}
+
+function renderBarHarian() {
+  const rg = rentangMingguDipilih();
+  document.getElementById("mingguLabel").textContent = labelMinggu(rg.dari);
+  document.getElementById("pilihTanggal").value = tanggalDipilih;
+}
+
+function renderTabsHarian() {
+  const rg = rentangMingguDipilih(), hariIni = hariIniStr();
+  let html = "";
+  for (let i = 0; i < 7; i++) {
+    const s = tambahHari(rg.dari, i), d = strKeTgl(s);
+    const jumlah = dataTanggal(s).length;
+    const kelas = ["hari-tab", s === tanggalDipilih ? "aktif" : "", s === hariIni ? "hari-ini" : "", s > hariIni ? "depan" : ""].join(" ").replace(/\s+/g, " ").trim();
+    html += `<button class="${kelas}" onclick="pilihTanggalHarian('${s}')" title="${escapeAttr(labelTanggalPanjang(s))}">
+      <span class="nm">${hariPendekAdm[d.getDay()]}</span><span class="tg">${d.getDate()}</span><span class="jm">${jumlah ? jumlah + " data" : ""}</span></button>`;
   }
-  body.innerHTML = absensiHariIni.map((r, i) => {
-    const cls = String(r.Status || "").toLowerCase();
-    return `<tr>
-      <td data-label="No">${i + 1}</td><td data-label="Nama Siswa"><strong>${escapeHtml(r.Nama)}</strong></td><td data-label="Kelas">${escapeHtml(r.Kelas)}</td><td data-label="Jam Masuk">${escapeHtml(r.JamMasuk)}</td>
+  document.getElementById("hariTabs").innerHTML = html;
+}
+
+function renderRingkasHari(daftar) {
+  const hariIni = hariIniStr();
+  const hitung = st => daftar.filter(r => String(r.Status).trim().toLowerCase() === st.toLowerCase()).length;
+  const ket = tanggalDipilih === hariIni ? " · hari ini" : (tanggalDipilih > hariIni ? " · belum terjadi" : "");
+  document.getElementById("ringkasHari").innerHTML =
+    `<span>${escapeHtml(labelTanggalPanjang(tanggalDipilih))}${ket}</span>` +
+    ["Hadir", "Izin", "Sakit", "Alfa"].map(st => `<span class="status ${st.toLowerCase()}">${st} ${hitung(st)}</span>`).join("");
+}
+
+function renderTabelAbsensi() {
+  if (!tanggalDipilih) tanggalDipilih = hariIniStr();
+  renderBarHarian();
+  renderTabsHarian();
+  const hariIni = hariIniStr();
+  const daftar = dataTanggal(tanggalDipilih);
+  renderRingkasHari(daftar);
+
+  const body = document.getElementById("attendanceBody");
+  if (!rentangDidukung && tanggalDipilih !== hariIni) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="6">Server belum diperbarui, jadi hanya absensi hari ini yang bisa ditampilkan. Pasang Code.gs versi terbaru lalu deploy ulang.</td></tr>`;
+  } else if (!daftar.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="6">Belum ada catatan absensi pada tanggal ini.${tanggalDipilih <= hariIni ? ' Gunakan "+ Catat Absensi" atau daftar "Belum tercatat" di bawah.' : ""}</td></tr>`;
+  } else {
+    const urut = daftar.slice().sort((a, b) => String(a.Kelas).localeCompare(String(b.Kelas)) || String(a.Nama).localeCompare(String(b.Nama), "id"));
+    body.innerHTML = urut.map((r, i) => {
+      const cls = String(r.Status || "").toLowerCase();
+      return `<tr>
+      <td data-label="No">${i + 1}</td><td data-label="Nama Siswa"><strong>${escapeHtml(r.Nama)}</strong></td><td data-label="Kelas">${escapeHtml(r.Kelas)}</td><td data-label="Jam Masuk">${escapeHtml(r.JamMasuk || "-")}</td>
       <td data-label="Status"><span class="status ${cls}">${escapeHtml(r.Status)}</span></td>
-      <td data-label="Aksi"><button class="edit" onclick="editStatus('${r.ID}', '${escapeAttr(r.Status)}')">✎ Ubah</button></td>
+      <td data-label="Aksi"><button class="edit" data-tanggal="${escapeAttr(tanggalDipilih)}" data-nama="${escapeAttr(r.Nama)}" data-kelas="${escapeAttr(kodeDariKelas(r.Kelas))}" data-status="${escapeAttr(r.Status)}" onclick="ubahDariBaris(this)">✎ Ubah</button></td>
     </tr>`;
-  }).join("");
+    }).join("");
+  }
+  renderBelumTercatat();
+}
+
+// Siswa yang dijadwalkan pada hari itu tetapi belum punya catatan absensi
+function hitungBelumTercatat(s) {
+  if (s > hariIniStr() || (!rentangDidukung && s !== hariIniStr())) return [];
+  const hari = namaHariDariTanggal(s);
+  const kodeHari = new Set(kelasList.filter(k => hariCocokAdm(k.Hari, hari)).map(k => String(k.Kode).trim()));
+  const sudah = new Set(dataTanggal(s).map(r => normNamaAdm(r.Nama) + "|" + kodeDariKelas(r.Kelas)));
+  const lihat = new Set(), hasil = [];
+  siswaKelasList.forEach(sk => {
+    const kode = String(sk.KodeKelas).trim(), kunci = normNamaAdm(sk.Nama) + "|" + kode;
+    if (!kodeHari.has(kode) || sudah.has(kunci) || lihat.has(kunci)) return;
+    lihat.add(kunci); hasil.push({ nama: String(sk.Nama).trim(), kode });
+  });
+  return hasil.sort((a, b) => a.kode.localeCompare(b.kode) || a.nama.localeCompare(b.nama, "id"));
+}
+
+function renderBelumTercatat() {
+  const kotak = document.getElementById("belumTercatat");
+  const daftar = hitungBelumTercatat(tanggalDipilih);
+  if (!daftar.length) { kotak.style.display = "none"; return; }
+  kotak.style.display = "block";
+  document.getElementById("belumTercatatJudul").textContent = `Belum tercatat pada tanggal ini (${daftar.length}) — klik untuk melihat`;
+  document.getElementById("belumTercatatList").innerHTML = daftar.map(x =>
+    `<div class="belum-item"><span><strong>${escapeHtml(x.nama)}</strong> · ${escapeHtml(x.kode)}</span>
+     <button class="edit" data-nama="${escapeAttr(x.nama)}" data-kelas="${escapeAttr(x.kode)}" onclick="catatDariBelum(this)">+ Catat</button></div>`).join("");
+}
+
+function pilihTanggalHarian(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s || "")) return;
+  tanggalDipilih = s; pilihanManual = true;
+  if (!rentangDidukung || (rentangDimuat && rentangDimuat.dari === awalMinggu(s))) { renderTabelAbsensi(); return; }
+  document.getElementById("attendanceBody").innerHTML = `<tr class="empty-row"><td colspan="6">Memuat data…</td></tr>`;
+  renderBarHarian(); renderTabsHarian();
+  loadData();
+}
+function geserMinggu(n) { pilihTanggalHarian(tambahHari(tanggalDipilih || hariIniStr(), 7 * n)); }
+function keHariIni() { pilihTanggalHarian(hariIniStr()); }
+
+/* ----- Form Catat / Ubah Absensi ----- */
+function bukaCatatAbsensi(awal) {
+  awal = awal || {};
+  const hariIni = hariIniStr();
+  const tgl = awal.tanggal || tanggalDipilih || hariIni;
+  const inpTgl = elId("absenTanggal");
+  inpTgl.max = hariIni; inpTgl.min = tambahHari(hariIni, -366);
+  inpTgl.value = tgl > hariIni ? hariIni : tgl;
+
+  const selKelas = elId("kelasSelect");
+  selKelas.innerHTML = kelasList.length
+    ? `<option value="">-- Pilih Kelas --</option>` + kelasList.map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} - ${escapeHtml(k.MataPelajaran)}</option>`).join("")
+    : `<option value="">Belum ada data kelas — isi sheet "Kelas" dahulu</option>`;
+  selKelas.value = awal.kode || "";
+  isiPilihanSiswa(awal.nama);
+  elId("status").value = awal.status || "Hadir";
+  [inpTgl, selKelas, elId("studentName")].forEach(x => { x.disabled = !!awal.kunci; });
+  elId("modalTitle").textContent = awal.kunci ? "Ubah Absensi" : "Catat Absensi";
+  perbaruiInfoAbsen(!awal.status);
+  elId("modal").classList.add("show");
+}
+
+function isiPilihanSiswa(pilih) {
+  const kode = elId("kelasSelect").value, sel = elId("studentName");
+  if (!kode) { sel.innerHTML = `<option value="">-- Pilih kelas dulu --</option>`; return; }
+  const unik = new Map();
+  siswaKelasList.forEach(sk => {
+    if (String(sk.KodeKelas).trim() !== kode) return;
+    const n = String(sk.Nama).trim(), k = normNamaAdm(n);
+    if (n && !unik.has(k)) unik.set(k, n);
+  });
+  const daftar = Array.from(unik.values()).sort((a, b) => a.localeCompare(b, "id"));
+  sel.innerHTML = daftar.length
+    ? `<option value="">-- Pilih Siswa --</option>` + daftar.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join("")
+    : `<option value="">Belum ada siswa di kelas ini</option>`;
+  if (pilih) { const cocok = daftar.find(n => normNamaAdm(n) === normNamaAdm(pilih)); if (cocok) sel.value = cocok; }
+}
+
+function perbaruiInfoAbsen(sinkronStatus) {
+  const tgl = elId("absenTanggal").value, kode = elId("kelasSelect").value, nama = elId("studentName").value;
+  const pesan = [];
+  if (tgl && kode) {
+    const hari = namaHariDariTanggal(tgl), k = kelasList.find(x => String(x.Kode).trim() === kode);
+    if (k && !hariCocokAdm(k.Hari, hari)) pesan.push(`⚠ Kelas ${kode} tidak dijadwalkan pada hari ${hari}. Tetap bisa dicatat bila memang ada sesi.`);
+  }
+  if (tgl && kode && nama) {
+    const ada = absensiTersimpan(tgl, kode, nama);
+    if (ada) {
+      pesan.push(`Sudah tercatat: ${ada.Status}${ada.JamMasuk && ada.JamMasuk !== "-" ? " (pukul " + ada.JamMasuk + ")" : ""}. Menyimpan akan memperbarui statusnya.`);
+      if (sinkronStatus) elId("status").value = ada.Status;
+    }
+  }
+  elId("absenInfo").textContent = pesan.join(" ");
+}
+
+function ubahDariBaris(btn) {
+  bukaCatatAbsensi({ tanggal: btn.dataset.tanggal, kode: btn.dataset.kelas, nama: btn.dataset.nama, status: btn.dataset.status, kunci: true });
+}
+function catatDariBelum(btn) {
+  bukaCatatAbsensi({ tanggal: tanggalDipilih, kode: btn.dataset.kelas, nama: btn.dataset.nama });
 }
 
 function renderRekapMinggu() {
@@ -1261,7 +1498,7 @@ function isHariIni(hariField) {
 }
 
 function renderKelasDanJadwal() {
-  const select = document.getElementById("kelasSelect");
+  const select = document.createElement("select");   // (pilihan kelas untuk modal absensi kini diisi saat modal dibuka)
   const jadwalList = document.getElementById("jadwalList");
   const kelasHariIni = kelasList.filter(k => isHariIni(k.Hari));
 
@@ -1509,29 +1746,35 @@ function closeSidebar() {
 }
 
 async function saveAttendance() {
-  const nama = document.getElementById("studentName").value.trim();
-  const kelas = document.getElementById("kelasSelect").value;
-  const status = document.getElementById("status").value;
-  if (!nama) return alert("Nama siswa belum diisi.");
-  if (!kelas) return alert('Kelas belum dipilih. Tambahkan data kelas di sheet "Kelas" dahulu.');
+  const tanggal = elId("absenTanggal").value;
+  const kode = elId("kelasSelect").value;
+  const nama = elId("studentName").value;
+  const status = elId("status").value;
+  if (!tanggal) return alert("Tanggal belum dipilih.");
+  if (tanggal > hariIniStr()) return alert("Tanggal tidak boleh di masa depan.");
+  if (!kode) return alert('Kelas belum dipilih. Tambahkan data kelas di sheet "Kelas" dahulu.');
+  if (!nama) return alert("Pilih nama siswa dari daftar. Kalau namanya belum ada, daftarkan dulu lewat Tambah Siswa.");
   if (!API_URL) return alert("Website belum terhubung ke Google Sheets. Isi API_URL di kode terlebih dahulu.");
 
-  const saveBtn = document.getElementById("saveBtn");
+  const k = kelasList.find(x => String(x.Kode).trim() === kode);
+  const saveBtn = elId("saveBtn");
   saveBtn.disabled = true;
   saveBtn.textContent = "Menyimpan…";
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: tokenSesi(), action: "add", nama, kelas, status })
+      body: JSON.stringify({ token: tokenSesi(), action: "add", tanggal, nama, kelas: kode + " - " + (k ? k.MataPelajaran : ""), status })
     });
     const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
     if (!data.success) throw new Error(data.error || "Gagal menyimpan");
     closeModal();
-    document.getElementById("studentName").value = "";
+    tampilkanToast(`✓ Absensi ${nama} (${labelTanggalPanjang(tanggal)}) tersimpan: ${status}.`);
+    tanggalDipilih = tanggal; pilihanManual = true;
     await loadData();
   } catch (err) {
-    alert("Gagal menyimpan data. Periksa koneksi internet dan URL API. Detail: " + (err.message || err));
+    alert("Gagal menyimpan data. " + (err.message || err));
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = "Simpan";
