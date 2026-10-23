@@ -992,7 +992,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -1299,6 +1299,7 @@ function labelMinggu(dari) {
     : `${a.getDate()} ${bulanPendekAdm[a.getMonth()]} – ${z.getDate()} ${bulanPendekAdm[z.getMonth()]} ${z.getFullYear()}`;
 }
 
+function normKodeAdm(s) { return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }   // C1 = c1 = C-1
 function normNamaAdm(s) { return String(s == null ? "" : s).trim().replace(/\s+/g, " ").toLowerCase(); }
 function kodeDariKelas(k) { return String(k == null ? "" : k).split(" - ")[0].trim(); }
 function hariCocokAdm(field, hari) {
@@ -1313,7 +1314,7 @@ function dataTanggal(s) {
 function absensiTersimpan(tanggal, kode, nama) {
   const sumber = rentangDidukung ? absensiRentang : absensiHariIni;
   return sumber.find(r => (rentangDidukung ? r.Tanggal === tanggal : tanggal === hariIniStr()) &&
-    normNamaAdm(r.Nama) === normNamaAdm(nama) && kodeDariKelas(r.Kelas) === kode);
+    normNamaAdm(r.Nama) === normNamaAdm(nama) && normKodeAdm(kodeDariKelas(r.Kelas)) === normKodeAdm(kode));
 }
 
 function renderBarHarian() {
@@ -1375,13 +1376,14 @@ function renderTabelAbsensi() {
 function hitungBelumTercatat(s) {
   if (s > hariIniStr() || (!rentangDidukung && s !== hariIniStr())) return [];
   const hari = namaHariDariTanggal(s);
-  const kodeHari = new Set(kelasList.filter(k => hariCocokAdm(k.Hari, hari)).map(k => String(k.Kode).trim()));
-  const sudah = new Set(dataTanggal(s).map(r => normNamaAdm(r.Nama) + "|" + kodeDariKelas(r.Kelas)));
+  const kelasHari = kelasList.filter(k => hariCocokAdm(k.Hari, hari));
+  const kodeResmi = new Map(kelasHari.map(k => [normKodeAdm(k.Kode), String(k.Kode).trim()]));
+  const sudah = new Set(dataTanggal(s).map(r => normNamaAdm(r.Nama) + "|" + normKodeAdm(kodeDariKelas(r.Kelas))));
   const lihat = new Set(), hasil = [];
   siswaKelasList.forEach(sk => {
-    const kode = String(sk.KodeKelas).trim(), kunci = normNamaAdm(sk.Nama) + "|" + kode;
-    if (!kodeHari.has(kode) || sudah.has(kunci) || lihat.has(kunci)) return;
-    lihat.add(kunci); hasil.push({ nama: String(sk.Nama).trim(), kode });
+    const kn = normKodeAdm(sk.KodeKelas), kunci = normNamaAdm(sk.Nama) + "|" + kn;
+    if (!kodeResmi.has(kn) || sudah.has(kunci) || lihat.has(kunci)) return;
+    lihat.add(kunci); hasil.push({ nama: String(sk.Nama).trim(), kode: kodeResmi.get(kn) });
   });
   return hasil.sort((a, b) => a.kode.localeCompare(b.kode) || a.nama.localeCompare(b.nama, "id"));
 }
@@ -1430,12 +1432,23 @@ function bukaCatatAbsensi(awal) {
   elId("modal").classList.add("show");
 }
 
+function siswaDiKelas(kode) { return siswaKelasList.filter(sk => normKodeAdm(sk.KodeKelas) === normKodeAdm(kode)); }
+
+// Penjelasan bila kelas terpilih tidak punya siswa: tampilkan apa yang sebenarnya terbaca dari sheet SiswaKelas
+function petunjukTanpaSiswa(kode) {
+  if (!siswaKelasList.length) return "Server tidak mengirim data siswa-kelas. Periksa isi sheet SiswaKelas, dan pastikan admin.html memakai alamat server (API_URL) yang terbaru.";
+  if (siswaKelasList.every(s => s.KodeKelas === undefined)) return "Data siswa-kelas dari server tidak memuat kolom KodeKelas. Server kemungkinan masih versi lama: pasang Code.gs terbaru dan samakan API_URL di admin.html.";
+  const hitung = {};
+  siswaKelasList.forEach(s => { const k = String(s.KodeKelas).trim() || "(kosong)"; hitung[k] = (hitung[k] || 0) + 1; });
+  const daftar = Object.keys(hitung).sort().map(k => `${k} (${hitung[k]})`).join(", ");
+  return `Tidak ada siswa dengan kode kelas "${kode}" di sheet SiswaKelas. Kode yang terbaca di kolom KodeKelas: ${daftar}. Samakan penulisannya dengan kolom Kode di sheet Kelas.`;
+}
+
 function isiPilihanSiswa(pilih) {
   const kode = elId("kelasSelect").value, sel = elId("studentName");
   if (!kode) { sel.innerHTML = `<option value="">-- Pilih kelas dulu --</option>`; return; }
   const unik = new Map();
-  siswaKelasList.forEach(sk => {
-    if (String(sk.KodeKelas).trim() !== kode) return;
+  siswaDiKelas(kode).forEach(sk => {
     const n = String(sk.Nama).trim(), k = normNamaAdm(n);
     if (n && !unik.has(k)) unik.set(k, n);
   });
@@ -1453,6 +1466,7 @@ function perbaruiInfoAbsen(sinkronStatus) {
     const hari = namaHariDariTanggal(tgl), k = kelasList.find(x => String(x.Kode).trim() === kode);
     if (k && !hariCocokAdm(k.Hari, hari)) pesan.push(`⚠ Kelas ${kode} tidak dijadwalkan pada hari ${hari}. Tetap bisa dicatat bila memang ada sesi.`);
   }
+  if (kode && !siswaDiKelas(kode).length) pesan.push(petunjukTanpaSiswa(kode));
   if (tgl && kode && nama) {
     const ada = absensiTersimpan(tgl, kode, nama);
     if (ada) {
@@ -1568,7 +1582,7 @@ function renderJadwalPage() {
     return;
   }
   body.innerHTML = kelasList.map(k => {
-    const jumlah = siswaKelasList.filter(s => String(s.KodeKelas).trim() === String(k.Kode).trim()).length;
+    const jumlah = siswaKelasList.filter(s => normKodeAdm(s.KodeKelas) === normKodeAdm(k.Kode)).length;
     return `<tr>
       <td data-label="Kode"><strong>${escapeHtml(k.Kode)}</strong></td>
       <td data-label="Mata Pelajaran">${escapeHtml(k.MataPelajaran)}</td>
@@ -1648,7 +1662,7 @@ function closeKelasModal() {
 function showKelasRoster(kode, mapel) {
   document.getElementById("kelasModalTitle").textContent = `${kode} - ${mapel}`;
   const listEl = document.getElementById("kelasModalList");
-  const siswa = siswaKelasList.filter(s => String(s.KodeKelas).trim() === String(kode).trim());
+  const siswa = siswaKelasList.filter(s => normKodeAdm(s.KodeKelas) === normKodeAdm(kode));
 
   if (!siswa.length) {
     listEl.innerHTML = `<div class="empty-note">Belum ada siswa terdaftar di kelas ini. Tambahkan di sheet "SiswaKelas" (kolom Nama dan KodeKelas).</div>`;
@@ -1820,7 +1834,7 @@ function sesiBerakhir() {
 function cekSesi() {
   const s = ambilSesi();
   if (!s || !s.id) { location.replace('index.html'); return null; }
-  if (s.peran !== 'admin') { location.replace('siswa.html'); return null; }
+  if (s.peran !== 'admin') { location.replace(s.peran === 'guru' ? 'guru.html' : 'siswa.html'); return null; }
   return s;
 }
 

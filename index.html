@@ -900,8 +900,8 @@
    SUPABASE_KEY : Publishable key (atau anon key versi lama). Aman ditaruh di sini,
                   karena tabel akun dikunci dan hanya bisa diakses lewat fungsi login_akun.
    ==================================================================== */
-const SUPABASE_URL = "https://oofuzqvcpgrpmuaqyrnw.supabase.co";   // contoh: https://abcdefghijk.supabase.co
-const SUPABASE_KEY = "sb_publishable_2KsQ3TJZs9xrHNNl5ZluPw_OHHGJykI";   // contoh: sb_publishable_xxxxxxxx
+const SUPABASE_URL = "ISI_SUPABASE_URL";   // contoh: https://abcdefghijk.supabase.co
+const SUPABASE_KEY = "ISI_SUPABASE_KEY";   // contoh: sb_publishable_xxxxxxxx
 
 const $ = (id) => document.getElementById(id);
 
@@ -909,7 +909,7 @@ function ambilSesi() {
   try { return JSON.parse(sessionStorage.getItem("bc_sesi") || "null"); } catch (e) { return null; }
 }
 function keHalaman(peran) {
-  location.replace(peran === "admin" ? "admin.html" : "siswa.html");
+  location.replace(peran === "admin" ? "admin.html" : (peran === "guru" ? "guru.html" : "siswa.html"));
 }
 function supabaseSiap() {
   return !String(SUPABASE_URL).startsWith("ISI_") && !String(SUPABASE_KEY).startsWith("ISI_");
@@ -944,7 +944,7 @@ async function handleLogin() {
     if (!Array.isArray(rows) || !rows.length) return showLoginError("ID atau Password salah.");
 
     const r = rows[0];
-    const peran = r.akun_peran === "admin" ? "admin" : "siswa";
+    const peran = r.akun_peran === "admin" ? "admin" : (r.akun_peran === "guru" ? "guru" : "siswa");
     sessionStorage.setItem("bc_sesi", JSON.stringify({
       id: String(r.akun_id),
       nama: String(r.akun_nama || r.akun_id),

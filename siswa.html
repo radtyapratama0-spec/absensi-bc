@@ -907,7 +907,7 @@
 <script type="module">
 /* KONFIGURASI: API_URL = URL Web App Google Apps Script (sama dengan halaman admin).
    Login dilakukan di index.html, jadi di sini tidak perlu konfigurasi Supabase. */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const VERSI_HALAMAN = "2026-10-19-diagnosa";
@@ -1353,6 +1353,7 @@ window.addEventListener("pageshow", e => { if (e.persisted && !ambilSesi()) loca
   const sesi = ambilSesi();
   if (!sesi || !sesi.id) { location.replace("index.html"); return; }
   if (sesi.peran === "admin") { location.replace("admin.html"); return; }
+  if (sesi.peran === "guru") { location.replace("guru.html"); return; }
   siswa = { id: String(sesi.id), nama: String(sesi.nama || sesi.id) };
   showWorkPage();
 })();
