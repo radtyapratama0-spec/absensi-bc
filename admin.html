@@ -767,6 +767,13 @@
       .harian-bar input[type=date] { margin-left:0; flex:1; min-width:0; }
       .minggu-label { min-width:0; flex:1; }
     }
+
+    /* ===== Jadwal per siswa & guru ===== */
+    .btn-kecil.aktif { background:#3978ee; color:#fff; }
+    .jp-sumber { display:inline-block; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px; }
+    .jp-khusus { background:#fff0d0; color:#8a5b00; }
+    .jp-ikut { background:#f2f5fa; color:#65738b; }
+    .form-row .hari-grid label { display:flex; }
   </style>
 </head>
 <body>
@@ -874,13 +881,39 @@
         <div class="heading">
           <div><h1>Jadwal Kelas</h1><p>Atur hari, jam, dan ruang tiap kelas. Jam absen siswa mengikuti jam kelas.</p></div>
         </div>
-        <div class="card section">
+        <div class="harian-bar" id="jpTabs">
+          <button class="btn-kecil aktif" id="jpTabKelas" onclick="setTabJadwal('kelas')">Kelas</button>
+          <button class="btn-kecil" id="jpTabSiswa" onclick="setTabJadwal('siswa')">Siswa</button>
+          <button class="btn-kecil" id="jpTabGuru" onclick="setTabJadwal('guru')">Guru</button>
+        </div>
+        <div class="card section" id="jpKelasCard">
           <div class="section-title"><h2>Semua Kelas</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
           <div class="hint-box" id="jadwalHint"></div>
           <div class="table-wrap stack">
             <table>
               <thead><tr><th>Kode</th><th>Mata Pelajaran</th><th>Hari</th><th>Jam</th><th>Ruang</th><th>Siswa</th><th>Aksi</th></tr></thead>
               <tbody id="jadwalBody"><tr class="empty-row"><td colspan="7">Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+              <div class="card section" id="jpSiswaCard" style="display:none">
+          <div class="section-title"><h2>Jadwal per Siswa</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
+          <div class="harian-bar"><select id="jpSiswaKelas" onchange="renderJadwalSiswa()" style="flex:1;padding:9px 10px;border:1px solid #dce3ed;border-radius:10px;font:inherit"></select></div>
+          <div class="hint-box">Kosongkan hari atau jam untuk ikut jadwal kelas. Perubahan berlaku sejak disimpan dan tidak mengubah absensi yang sudah tercatat.</div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Nama Siswa</th><th>Hari</th><th>Jam</th><th>Sumber</th><th>Aksi</th></tr></thead>
+              <tbody id="jpSiswaBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card section" id="jpGuruCard" style="display:none">
+          <div class="section-title"><h2>Jadwal per Guru</h2><span class="link" onclick="loadData()">↻ Muat Ulang</span></div>
+          <div class="hint-box">Kelas yang diajar guru ditetapkan di sheet GuruKelas. Di sini hanya jam dan hari khususnya. Kosong = ikut jadwal kelas.</div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>ID Guru</th><th>Kelas</th><th>Hari</th><th>Jam</th><th>Sumber</th><th>Aksi</th></tr></thead>
+              <tbody id="jpGuruBody"></tbody>
             </table>
           </div>
         </div>
@@ -971,6 +1004,23 @@
   </div>
 </div>
 
+<div class="modal" id="jadwalPersonalModal">
+  <div class="modal-box">
+    <h2 id="jpJudul">Atur Jadwal</h2>
+    <div class="form-row"><label>Hari (kosongkan = ikut jadwal kelas)</label><div class="hari-grid" id="jpHariGrid" onchange="pratinjauJadwalPersonal()"></div></div>
+    <div class="waktu-grid">
+      <div class="form-row"><label>Jam Mulai</label><input id="jpMulai" type="time" oninput="pratinjauJadwalPersonal()" onchange="pratinjauJadwalPersonal()"></div>
+      <div class="form-row"><label>Jam Selesai</label><input id="jpSelesai" type="time" oninput="pratinjauJadwalPersonal()" onchange="pratinjauJadwalPersonal()"></div>
+    </div>
+    <div class="hint-box" id="jpInfo"></div>
+    <div class="modal-actions">
+      <button class="btn cancel" onclick="closeJadwalPersonal()">Batal</button>
+      <button class="btn" onclick="simpanJadwalPersonal(true)">Ikut Jadwal Kelas</button>
+      <button class="btn primary" id="jpSimpan" onclick="simpanJadwalPersonal(false)">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="sppModal">
   <div class="modal-box">
     <h2 id="sppModalTitle">Catat Pembayaran SPP</h2>
@@ -996,6 +1046,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
+let guruKelasList = [], jpMode = "", jpNama = "", jpKode = "", jpIdGuru = "", jpKelasDasar = null;
 let tanggalDipilih = "", absensiRentang = [], rentangDidukung = false, rentangDimuat = null, waktuServerAdmin = null, pilihanManual = false;
 let siswaKelasList = [];
 let absensiHariIni = [];
@@ -1056,6 +1107,7 @@ async function loadData() {
     tampilkanBanner("");
     kelasList = data.kelas || [];
     pengaturanAbsenInfo = data.pengaturanAbsen || null;
+    guruKelasList = data.guruKelas || [];
     siswaKelasList = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
     waktuServerAdmin = data.waktuServer || null;
@@ -1107,6 +1159,8 @@ function renderSemua() {
   renderRekapMinggu();
   renderKelasDanJadwal();
   renderJadwalPage();
+  renderJadwalSiswa();
+  renderJadwalGuru();
   renderLaporanSPP();
 }
 
@@ -1376,14 +1430,17 @@ function renderTabelAbsensi() {
 function hitungBelumTercatat(s) {
   if (s > hariIniStr() || (!rentangDidukung && s !== hariIniStr())) return [];
   const hari = namaHariDariTanggal(s);
-  const kelasHari = kelasList.filter(k => hariCocokAdm(k.Hari, hari));
-  const kodeResmi = new Map(kelasHari.map(k => [normKodeAdm(k.Kode), String(k.Kode).trim()]));
+  const kelasByKode = new Map(kelasList.map(k => [normKodeAdm(k.Kode), k]));
   const sudah = new Set(dataTanggal(s).map(r => normNamaAdm(r.Nama) + "|" + normKodeAdm(kodeDariKelas(r.Kelas))));
   const lihat = new Set(), hasil = [];
   siswaKelasList.forEach(sk => {
-    const kn = normKodeAdm(sk.KodeKelas), kunci = normNamaAdm(sk.Nama) + "|" + kn;
-    if (!kodeResmi.has(kn) || sudah.has(kunci) || lihat.has(kunci)) return;
-    lihat.add(kunci); hasil.push({ nama: String(sk.Nama).trim(), kode: kodeResmi.get(kn) });
+    const kn = normKodeAdm(sk.KodeKelas), k = kelasByKode.get(kn);
+    if (!k) return;
+    const hariSiswa = String(sk.Hari || "").trim() ? sk.Hari : k.Hari;   // hari milik siswa, atau hari kelas
+    if (!hariCocokAdm(hariSiswa, hari)) return;
+    const kunci = normNamaAdm(sk.Nama) + "|" + kn;
+    if (sudah.has(kunci) || lihat.has(kunci)) return;
+    lihat.add(kunci); hasil.push({ nama: String(sk.Nama).trim(), kode: String(k.Kode).trim() });
   });
   return hasil.sort((a, b) => a.kode.localeCompare(b.kode) || a.nama.localeCompare(b.nama, "id"));
 }
@@ -1464,7 +1521,7 @@ function perbaruiInfoAbsen(sinkronStatus) {
   const pesan = [];
   if (tgl && kode) {
     const hari = namaHariDariTanggal(tgl), k = kelasList.find(x => String(x.Kode).trim() === kode);
-    if (k && !hariCocokAdm(k.Hari, hari)) pesan.push(`⚠ Kelas ${kode} tidak dijadwalkan pada hari ${hari}. Tetap bisa dicatat bila memang ada sesi.`);
+    if (k && !hariCocokAdm(effHariSiswa(kode, nama, k), hari)) pesan.push(`⚠ Kelas ${kode} tidak dijadwalkan pada hari ${hari}. Tetap bisa dicatat bila memang ada sesi.`);
   }
   if (kode && !siswaDiKelas(kode).length) pesan.push(petunjukTanpaSiswa(kode));
   if (tgl && kode && nama) {
@@ -1651,6 +1708,145 @@ async function saveKelasEdit() {
   }
 }
 elId("kelasEditModal").addEventListener("click", e => { if (e.target.id === "kelasEditModal") closeKelasEdit(); });
+
+/* ===== Jadwal per siswa & per guru ===== */
+function effHariSiswa(kode, nama, k) {
+  const sk = nama ? siswaKelasList.find(x => normKodeAdm(x.KodeKelas) === normKodeAdm(kode) && normNamaAdm(x.Nama) === normNamaAdm(nama)) : null;
+  return sk && String(sk.Hari || "").trim() ? sk.Hari : (k ? k.Hari : "");
+}
+
+function setTabJadwal(t) {
+  const tab = { kelas: ["jpKelasCard", "jpTabKelas"], siswa: ["jpSiswaCard", "jpTabSiswa"], guru: ["jpGuruCard", "jpTabGuru"] };
+  Object.keys(tab).forEach(k => {
+    elId(tab[k][0]).style.display = k === t ? "" : "none";
+    elId(tab[k][1]).classList.toggle("aktif", k === t);
+  });
+  if (t === "siswa") renderJadwalSiswa();
+  if (t === "guru") renderJadwalGuru();
+  if (t === "kelas") renderJadwalPage();
+}
+
+function infoSumber(punyaHari, punyaJam) {
+  return punyaHari || punyaJam
+    ? `<span class="jp-sumber jp-khusus">Khusus</span>`
+    : `<span class="jp-sumber jp-ikut">Ikut kelas</span>`;
+}
+function jamTampil(mulai, selesai) { return (mulai && selesai) ? `${escapeHtml(mulai)} - ${escapeHtml(selesai)}` : "-"; }
+
+function renderJadwalSiswa() {
+  const sel = elId("jpSiswaKelas");
+  if (!sel.options.length || sel.dataset.isi !== String(kelasList.length)) {
+    sel.innerHTML = kelasList.map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} - ${escapeHtml(k.MataPelajaran)}</option>`).join("");
+    sel.dataset.isi = String(kelasList.length);
+  }
+  const kode = sel.value;
+  const k = kelasList.find(x => normKodeAdm(x.Kode) === normKodeAdm(kode));
+  const baris = siswaKelasList.filter(x => normKodeAdm(x.KodeKelas) === normKodeAdm(kode))
+    .sort((a, b) => String(a.Nama).localeCompare(String(b.Nama), "id"));
+  const body = elId("jpSiswaBody");
+  if (!kelasList.length) { body.innerHTML = `<tr class="empty-row"><td colspan="5">Belum ada data kelas.</td></tr>`; return; }
+  if (!baris.length) { body.innerHTML = `<tr class="empty-row"><td colspan="5">Belum ada siswa di kelas ini.</td></tr>`; return; }
+  body.innerHTML = baris.map(x => {
+    const hari = String(x.Hari || "").trim() ? x.Hari : (k ? k.Hari : "");
+    const mulai = String(x.JamMulai || "").trim() ? x.JamMulai : (k ? k.JamMulai : "");
+    const selesai = String(x.JamSelesai || "").trim() ? x.JamSelesai : (k ? k.JamSelesai : "");
+    return `<tr>
+      <td data-label="Nama Siswa"><strong>${escapeHtml(x.Nama)}</strong></td>
+      <td data-label="Hari">${escapeHtml(hari || "-")}</td>
+      <td data-label="Jam">${jamTampil(mulai, selesai)}</td>
+      <td data-label="Sumber">${infoSumber(String(x.Hari || "").trim(), String(x.JamMulai || "").trim() || String(x.JamSelesai || "").trim())}</td>
+      <td data-label="Aksi"><button class="edit" data-nama="${escapeAttr(x.Nama)}" data-kode="${escapeAttr(kode)}" onclick="bukaJadwalSiswa(this)">✎ Atur</button></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderJadwalGuru() {
+  const body = elId("jpGuruBody");
+  if (!guruKelasList.length) { body.innerHTML = `<tr class="empty-row"><td colspan="6">Belum ada penugasan guru. Isi sheet GuruKelas dahulu.</td></tr>`; return; }
+  body.innerHTML = guruKelasList.filter(g => String(g.KodeKelas || "").trim()).map(g => {
+    const k = kelasList.find(x => normKodeAdm(x.Kode) === normKodeAdm(g.KodeKelas));
+    const hari = String(g.Hari || "").trim() ? g.Hari : (k ? k.Hari : "");
+    const mulai = String(g.JamMulai || "").trim() ? g.JamMulai : (k ? k.JamMulai : "");
+    const selesai = String(g.JamSelesai || "").trim() ? g.JamSelesai : (k ? k.JamSelesai : "");
+    return `<tr>
+      <td data-label="ID Guru"><strong>${escapeHtml(g.IDGuru)}</strong></td>
+      <td data-label="Kelas">${escapeHtml(g.KodeKelas)}${k ? " · " + escapeHtml(k.MataPelajaran) : ""}</td>
+      <td data-label="Hari">${escapeHtml(hari || "-")}</td>
+      <td data-label="Jam">${jamTampil(mulai, selesai)}</td>
+      <td data-label="Sumber">${infoSumber(String(g.Hari || "").trim(), String(g.JamMulai || "").trim() || String(g.JamSelesai || "").trim())}</td>
+      <td data-label="Aksi"><button class="edit" data-id="${escapeAttr(g.IDGuru)}" data-kode="${escapeAttr(g.KodeKelas)}" onclick="bukaJadwalGuru(this)">✎ Atur</button></td>
+    </tr>`;
+  }).join("");
+}
+
+function bukaJadwalSiswa(btn) {
+  jpMode = "siswa"; jpNama = btn.dataset.nama; jpKode = btn.dataset.kode; jpIdGuru = "";
+  const sk = siswaKelasList.find(x => normNamaAdm(x.Nama) === normNamaAdm(jpNama) && normKodeAdm(x.KodeKelas) === normKodeAdm(jpKode)) || {};
+  const k = kelasList.find(x => normKodeAdm(x.Kode) === normKodeAdm(jpKode));
+  bukaFormJadwal(`Jadwal ${jpNama} · ${jpKode}`, sk, k);
+}
+function bukaJadwalGuru(btn) {
+  jpMode = "guru"; jpIdGuru = btn.dataset.id; jpKode = btn.dataset.kode; jpNama = "";
+  const g = guruKelasList.find(x => normKunciAdm(x.IDGuru) === normKunciAdm(jpIdGuru) && normKodeAdm(x.KodeKelas) === normKodeAdm(jpKode)) || {};
+  const k = kelasList.find(x => normKodeAdm(x.Kode) === normKodeAdm(jpKode));
+  bukaFormJadwal(`Jadwal guru ${jpIdGuru} · ${jpKode}`, g, k);
+}
+function normKunciAdm(s) { return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+function bukaFormJadwal(judul, baris, k) {
+  jpKelasDasar = k || null;
+  elId("jpJudul").textContent = judul;
+  const aktif = daftarHari(baris.Hari || "").map(h => h.toLowerCase());
+  elId("jpHariGrid").innerHTML = urutanHariKelas.map(h =>
+    `<label><input type="checkbox" value="${h}" ${aktif.includes(h.toLowerCase()) ? "checked" : ""}>${h}</label>`).join("");
+  elId("jpMulai").value = nilaiInputJam(baris.JamMulai || "");
+  elId("jpSelesai").value = nilaiInputJam(baris.JamSelesai || "");
+  pratinjauJadwalPersonal();
+  elId("jadwalPersonalModal").classList.add("show");
+}
+
+function pratinjauJadwalPersonal() {
+  const hari = Array.from(document.querySelectorAll("#jpHariGrid input:checked")).map(i => i.value);
+  const jm = elId("jpMulai").value, js = elId("jpSelesai").value;
+  const kelas = jpKelasDasar;
+  const hariEfektif = hari.length ? urutanHariKelas.filter(h => hari.includes(h)).join(", ") : (kelas ? daftarHari(kelas.Hari).join(", ") : "-");
+  const mulai = jm ? menitDariJam(jm) : (kelas ? menitDariJam(kelas.JamMulai) : null);
+  const selesai = js ? menitDariJam(js) : (kelas ? menitDariJam(kelas.JamSelesai) : null);
+  let info = `Berlaku: ${hariEfektif}`;
+  if (mulai !== null && selesai !== null) info += `, ${jamDariMenit(mulai)} - ${jamDariMenit(selesai)}`;
+  if (!hari.length && !jm && !js) info = "Saat disimpan kosong, ikut jadwal kelas: " + (kelas ? `${daftarHari(kelas.Hari).join(", ")}, ${kelas.JamMulai} - ${kelas.JamSelesai}` : "-");
+  if ((jm && !js) || (!jm && js)) info = "⚠ Isi jam mulai dan jam selesai keduanya, atau kosongkan keduanya.";
+  if (mulai !== null && selesai !== null && selesai <= mulai) info = "⚠ Jam selesai harus lebih akhir dari jam mulai.";
+  elId("jpInfo").textContent = info;
+}
+
+function closeJadwalPersonal() { elId("jadwalPersonalModal").classList.remove("show"); }
+elId("jadwalPersonalModal").addEventListener("click", e => { if (e.target.id === "jadwalPersonalModal") closeJadwalPersonal(); });
+
+async function simpanJadwalPersonal(ikutKelas) {
+  const hari = ikutKelas ? [] : Array.from(document.querySelectorAll("#jpHariGrid input:checked")).map(i => i.value);
+  const jm = ikutKelas ? "" : elId("jpMulai").value, js = ikutKelas ? "" : elId("jpSelesai").value;
+  if (!ikutKelas && ((jm && !js) || (!jm && js))) return alert("Isi jam mulai dan jam selesai keduanya, atau kosongkan keduanya.");
+  const btn = elId("jpSimpan");
+  btn.disabled = true; btn.textContent = "Menyimpan…";
+  const muatan = jpMode === "siswa"
+    ? { action: "updateJadwalSiswa", nama: jpNama, kodeKelas: jpKode }
+    : { action: "updateJadwalGuru", idGuru: jpIdGuru, kodeKelas: jpKode };
+  Object.assign(muatan, { token: tokenSesi(), hari: hari.join(","), jamMulai: jm, jamSelesai: js });
+  try {
+    const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(muatan) });
+    const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
+    if (!data.success) throw new Error(data.error || "Gagal menyimpan jadwal.");
+    closeJadwalPersonal();
+    tampilkanToast(ikutKelas ? "✓ Jadwal dikembalikan mengikuti kelas." : "✓ Jadwal khusus tersimpan.");
+    await loadData();
+  } catch (err) {
+    alert("Gagal menyimpan jadwal: " + (err.message || err));
+  } finally {
+    btn.disabled = false; btn.textContent = "Simpan";
+  }
+}
 
 function openKelasModal() {
   document.getElementById("kelasModal").classList.add("show");
