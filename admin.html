@@ -774,6 +774,11 @@
     .jp-khusus { background:#fff0d0; color:#8a5b00; }
     .jp-ikut { background:#f2f5fa; color:#65738b; }
     .form-row .hari-grid label { display:flex; }
+
+    /* ===== Rangkuman ===== */
+    .rk-hari { word-break:break-word; line-height:1.6; }
+    .rk-stat { display:flex; gap:14px; align-items:center; }
+    .rk-stat .number { font-size:26px; }
   </style>
 </head>
 <body>
@@ -788,6 +793,7 @@
       <div class="nav-item active" id="navDashboard" onclick="showPage('dashboard'); closeSidebar()"><span>⌂</span><span>Dashboard</span></div>
       <div class="nav-item" id="navJadwal" onclick="showPage('jadwal'); closeSidebar()"><span>▦</span><span>Jadwal</span></div>
       <div class="nav-item" id="navLaporan" onclick="showPage('laporan'); closeSidebar()"><span>▥</span><span>Laporan SPP</span></div>
+      <div class="nav-item" id="navRangkuman" onclick="showPage('rangkuman'); closeSidebar()"><span>▤</span><span>Rangkuman</span></div>
       <div class="nav-item" onclick="alert('Buka file Google Sheets kamu untuk mengatur data Kelas.'); closeSidebar()"><span>⚙</span><span>Pengaturan</span></div>
     </nav>
   </aside>
@@ -855,6 +861,7 @@
         <div>
           <div class="card section">
             <div class="section-title"><h2>Aksi Cepat</h2></div>
+            <button class="btn primary" style="width:100%;margin-bottom:12px" onclick="showPage('rangkuman')">📊 Rangkuman Absensi &amp; SPP</button>
             <div class="quick-grid">
               <button class="quick q1" onclick="openSiswaModal()">👤＋<span>Tambah Siswa</span></button>
               <button class="quick q2" onclick="bukaCatatAbsensi()">☑<span>Catat Absensi</span></button>
@@ -914,6 +921,45 @@
             <table>
               <thead><tr><th>ID Guru</th><th>Kelas</th><th>Hari</th><th>Jam</th><th>Sumber</th><th>Aksi</th></tr></thead>
               <tbody id="jpGuruBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="rangkumanPage" style="display:none">
+        <div class="heading">
+          <div><h1>Rangkuman</h1><p>Rekap absensi siswa dan status pembayaran SPP per bulan</p></div>
+        </div>
+        <div class="card section">
+          <div class="harian-bar">
+            <label style="font-weight:800;color:#4a5b78;font-size:13px">Bulan</label>
+            <input type="month" id="rkBulan" onchange="loadRangkuman()" style="padding:9px 10px;border:1px solid #dce3ed;border-radius:10px;font:inherit;color:#273957">
+            <button class="btn-kecil" onclick="loadRangkuman()">↻ Muat Ulang</button>
+          </div>
+          <div class="ringkas-hari" id="rkStatus"></div>
+          <div class="stats">
+            <div class="card stat"><div class="rk-stat"><div><div class="label">Total Siswa</div><div class="number" id="rkTotal">0</div></div></div></div>
+            <div class="card stat"><div class="rk-stat"><div><div class="label" style="color:#169660">Sudah Lunas</div><div class="number" id="rkLunas">0</div></div></div></div>
+            <div class="card stat"><div class="rk-stat"><div><div class="label" style="color:#d93c47">Belum Lunas</div><div class="number" id="rkBelum">0</div></div></div></div>
+          </div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Absensi per Siswa</h2></div>
+          <div class="hint-box">Tanggal Hadir menampilkan tanggal kehadiran. Izin, Sakit, dan Alfa ditampilkan sebagai jumlah hari.</div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Nama</th><th>Tanggal Hadir</th><th>Total Hadir</th><th>Izin</th><th>Sakit</th><th>Alfa</th></tr></thead>
+              <tbody id="rkAbsenBody"><tr class="empty-row"><td colspan="6">Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Status SPP</h2></div>
+          <div class="hint-box">Siswa tanpa catatan pembayaran di bulan ini ditampilkan sebagai Belum Lunas.</div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Nama</th><th>Keterangan</th></tr></thead>
+              <tbody id="rkSppBody"><tr class="empty-row"><td colspan="2">Memuat data…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1042,7 +1088,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -1168,7 +1214,8 @@ function showPage(page) {
   const halaman = {
     dashboard: ["dashboardPage", "navDashboard"],
     jadwal: ["jadwalPage", "navJadwal"],
-    laporan: ["laporanPage", "navLaporan"]
+    laporan: ["laporanPage", "navLaporan"],
+    rangkuman: ["rangkumanPage", "navRangkuman"]
   };
   if (!halaman[page]) page = "dashboard";
   Object.keys(halaman).forEach(k => {
@@ -1177,6 +1224,7 @@ function showPage(page) {
     document.getElementById(halaman[k][1]).classList.toggle("active", aktif);
   });
   if (page === "laporan") renderLaporanSPP();
+  if (page === "rangkuman") renderRangkuman();
   if (page === "jadwal") renderJadwalPage();
   window.scrollTo({ top: 0 });
 }
@@ -1846,6 +1894,99 @@ async function simpanJadwalPersonal(ikutKelas) {
   } finally {
     btn.disabled = false; btn.textContent = "Simpan";
   }
+}
+
+/* ===== Rangkuman absensi & SPP ===== */
+let rkDataAbsen = null, rkBulanDimuat = "";
+
+function rkRentang(ym) {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const akhir = new Date(y, m, 0).getDate();
+  const mm = String(m).padStart(2, "0");
+  return { dari: `${y}-${mm}-01`, sampai: `${y}-${mm}-${String(akhir).padStart(2, "0")}` };
+}
+function rkBulanIni() {
+  const t = waktuServerAdmin && waktuServerAdmin.tanggal ? waktuServerAdmin.tanggal : tglKeStr(new Date());
+  return t.slice(0, 7);
+}
+function rkSiswaUnik() {
+  const m = new Map();
+  siswaKelasList.forEach(x => { const n = String(x.Nama || "").trim(), k = normNamaAdm(n); if (n && !m.has(k)) m.set(k, n); });
+  return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1], "id"));
+}
+
+function renderRangkuman() {
+  const inp = elId("rkBulan");
+  if (!inp.value) inp.value = rkBulanIni();
+  if (rkBulanDimuat !== inp.value) loadRangkuman(); else tampilRangkuman();
+}
+
+async function loadRangkuman() {
+  const ym = elId("rkBulan").value || rkBulanIni();
+  elId("rkBulan").value = ym;
+  const r = rkRentang(ym);
+  elId("rkStatus").textContent = "Memuat data " + namaBulan[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(0, 4) + "…";
+  try {
+    const res = await fetch(API_URL + "?token=" + encodeURIComponent(tokenSesi()) + "&dari=" + r.dari + "&sampai=" + r.sampai);
+    const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
+    if (!data.success) throw new Error(data.error || "Gagal memuat data");
+    rkDataAbsen = Array.isArray(data.absensiRentang) ? data.absensiRentang : null;
+    rkBulanDimuat = ym;
+    tampilRangkuman();
+  } catch (err) {
+    elId("rkStatus").textContent = "Gagal memuat: " + (err.message || err);
+  }
+}
+
+function tampilRangkuman() {
+  const ym = elId("rkBulan").value;
+  const bulanNama = namaBulan[Number(ym.slice(5, 7)) - 1];
+  const siswa = rkSiswaUnik();
+  const absen = rkDataAbsen || [];
+
+  // Absensi: hitung per hari unik untuk setiap status
+  const absenBaris = siswa.map(([key, nama]) => {
+    const milik = absen.filter(r => normNamaAdm(r.Nama) === key);
+    const hari = st => Array.from(new Set(milik
+      .filter(r => String(r.Status || "").trim().toLowerCase() === st)
+      .map(r => Number(String(r.Tanggal).slice(8, 10)))))
+      .sort((a, b) => a - b);
+    return { nama, hadir: hari("hadir"), izin: hari("izin").length, sakit: hari("sakit").length, alfa: hari("alfa").length };
+  });
+
+  // SPP: Lunas bila ada catatan Lunas di bulan itu; selain itu Belum Lunas
+  const sppBulan = sppList.filter(r => String(r.Bulan || "").trim() === bulanNama);
+  const spp = siswa.map(([key, nama]) => {
+    const lunas = sppBulan.some(r => normNamaAdm(r.Nama) === key && String(r.Status || "").trim() === "Lunas");
+    return { nama, lunas };
+  });
+
+  elId("rkTotal").textContent = siswa.length;
+  elId("rkLunas").textContent = spp.filter(x => x.lunas).length;
+  elId("rkBelum").textContent = spp.filter(x => !x.lunas).length;
+
+  let status = `${bulanNama} ${ym.slice(0, 4)}`;
+  if (!rkDataAbsen) status += " · Server belum diperbarui: pasang Code.gs terbaru agar absensi bulanan tampil.";
+  elId("rkStatus").textContent = status;
+
+  elId("rkAbsenBody").innerHTML = !siswa.length
+    ? `<tr class="empty-row"><td colspan="6">Belum ada data siswa.</td></tr>`
+    : absenBaris.map(x => `<tr>
+        <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
+        <td data-label="Tanggal Hadir" class="rk-hari">${x.hadir.length ? x.hadir.join(", ") : "-"}</td>
+        <td data-label="Total Hadir"><strong>${x.hadir.length}</strong></td>
+        <td data-label="Izin">${x.izin}</td>
+        <td data-label="Sakit">${x.sakit}</td>
+        <td data-label="Alfa">${x.alfa}</td>
+      </tr>`).join("");
+
+  elId("rkSppBody").innerHTML = !siswa.length
+    ? `<tr class="empty-row"><td colspan="2">Belum ada data siswa.</td></tr>`
+    : spp.map(x => `<tr>
+        <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
+        <td data-label="Keterangan"><span class="status ${x.lunas ? "lunas" : "belumlunas"}">${x.lunas ? "Lunas" : "Belum Lunas"}</span></td>
+      </tr>`).join("");
 }
 
 function openKelasModal() {
