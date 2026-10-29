@@ -793,6 +793,24 @@
       .info-row > span:last-child, .info-row > div { text-align:left; }
       .btn-row .btn { flex:1; }
     }
+
+    /* ===== Ujian ===== */
+    .u-chip { display:inline-block; font-weight:800; font-size:13px; letter-spacing:2px; padding:6px 12px; border-radius:10px; background:#eef3ff; color:#3978ee; }
+    .u-soal { border:1px solid #e5eaf2; border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+    .u-soal p { font-weight:700; margin-bottom:8px; line-height:1.5; }
+    .u-opsi { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #e1e8f2; border-radius:10px; margin-bottom:6px; cursor:pointer; font-size:14px; }
+    .u-opsi input { width:auto; min-height:0; margin:0; accent-color:#3978ee; }
+    .u-opsi.dipilih { border-color:#3978ee; background:#f2f6ff; }
+    .u-timer { font-weight:800; color:#d93c47; font-variant-numeric:tabular-nums; }
+    .u-kartu { border:1px solid #e5eaf2; border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+    .u-kartu h3 { font-size:16px; color:#172846; margin-bottom:4px; }
+    .u-meta { font-size:12.5px; color:#65738b; font-weight:600; margin-bottom:8px; }
+    .u-aksi { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .u-tabel { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+    .u-tabel td, .u-tabel th { padding:7px 6px; border-bottom:1px solid #edf1f6; text-align:left; }
+    .jp-sumber { display:inline-block; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px; margin-left:6px; }
+    .jp-ikut { background:#ddf7eb; color:#169660; }
+    .jp-khusus { background:#ffe3e5; color:#d93c47; }
   </style>
 </head>
 
@@ -810,6 +828,7 @@
       <div class="nav-item" id="nav-jadwal" onclick="showPage('jadwal')"><span>▦</span><span>Jadwal Mengajar</span></div>
       <div class="nav-item" id="nav-kelas" onclick="showPage('kelas')"><span>☰</span><span>Kelas Saya</span></div>
       <div class="nav-item" id="nav-absensi" onclick="showPage('absensi')"><span>✓</span><span>Absensi Saya</span></div>
+      <div class="nav-item" id="nav-ujian" onclick="showPage('ujian')"><span>✎</span><span>Ujian</span></div>
       <div class="nav-item" id="nav-profil" onclick="showPage('profil')"><span>☺</span><span>Profil</span></div>
     </nav>
   </aside>
@@ -887,6 +906,43 @@
       </div>
 
       <!-- ===== PROFIL ===== -->
+      <div class="page" id="page-ujian">
+        <div class="heading"><div><h1>Ujian</h1><p>Bank soal, buat ujian dengan token, dan buka nilai</p></div></div>
+        <div class="card section">
+          <div class="section-title"><h2>Bank Soal</h2></div>
+          <div class="form-row"><label>Kelas</label><select id="bsKelas" onchange="renderBankGuru()"></select></div>
+          <div id="bsList"></div>
+          <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800;color:#3978ee">+ Tambah soal</summary>
+            <input type="hidden" id="bsId">
+            <div class="form-row"><label>Pertanyaan</label><textarea id="bsPertanyaan" rows="3" style="width:100%"></textarea></div>
+            <div class="form-row"><label>Opsi A</label><input id="bsA"></div>
+            <div class="form-row"><label>Opsi B</label><input id="bsB"></div>
+            <div class="form-row"><label>Opsi C</label><input id="bsC"></div>
+            <div class="form-row"><label>Opsi D</label><input id="bsD"></div>
+            <div class="form-row"><label>Kunci jawaban</label><select id="bsKunci"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+            <div class="form-row"><label>Bobot nilai</label><input id="bsBobot" type="number" min="1" max="100" value="1"></div>
+            <div class="u-aksi"><button class="btn primary" onclick="simpanSoal()">Simpan Soal</button><button class="btn" onclick="resetFormSoal()">Kosongkan</button></div>
+          </details>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Buat Ujian</h2></div>
+          <div class="form-row"><label>Kelas</label><select id="buKelas"></select></div>
+          <div class="form-row"><label>Judul ujian</label><input id="buJudul" maxlength="120" placeholder="cth: UH Bab 2"></div>
+          <div class="form-row"><label>Jumlah soal per siswa</label><input id="buJumlah" type="number" min="1" max="100" value="10"></div>
+          <div class="form-row"><label>Durasi (menit)</label><input id="buDurasi" type="number" min="5" max="240" value="30"></div>
+          <div class="u-aksi"><button class="btn primary" onclick="buatUjianGuru()">Buat Ujian</button></div>
+          <div id="buHasil"></div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Daftar Ujian</h2></div>
+          <div id="ujianListGuru"><div class="empty-note">Belum ada ujian.</div></div>
+        </div>
+        <div class="card section" id="detailCardGuru" style="display:none">
+          <div class="section-title"><h2>Jawaban Siswa</h2><span class="link" onclick="tutupDetail()">Tutup</span></div>
+          <div id="detailIsiGuru"></div>
+        </div>
+      </div>
+
       <div class="page" id="page-profil">
         <div class="heading"><div><h1>Profil Saya</h1><p>Informasi akun guru Anda</p></div></div>
         <div class="card section" style="max-width:720px">
@@ -908,7 +964,7 @@
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const namaHari = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
@@ -999,6 +1055,7 @@ async function loadData() {
     siswaKelasSaya = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
     absensiBulanIni = data.absensiBulanIni || [];
+    bankSoalGuru = data.bankSoal || []; ujianGuru = data.ujian || []; sesiUjianGuru = data.sesiUjian || [];
     absenGuruHari = data.absenGuruHariIni || [];
     absenGuruBulan = data.absenGuruBulanIni || [];
     waktuServer = data.waktuServer ? Object.assign({}, data.waktuServer, { diambil: Date.now() }) : null;
@@ -1006,6 +1063,7 @@ async function loadData() {
     if (data.guru) guru = { id: String(data.guru.id), nama: String(data.guru.nama || data.guru.id) };
     dataSudahDimuat = true;
     renderSemua();
+    renderUjianGuru();
   } catch (err) {
     console.error(err);
     tampilkanBanner(`<div class="error-banner"><strong>⚠ Gagal memuat data</strong>${escapeHtml(err.message || err)}. Periksa koneksi lalu tekan "Muat Ulang".</div>`);
@@ -1189,7 +1247,7 @@ function renderProfil() {
 
 /* ---------- navigasi & logout ---------- */
 function showPage(nama) {
-  ["beranda", "jadwal", "kelas", "absensi", "profil"].forEach(p => {
+  ["beranda", "jadwal", "kelas", "absensi", "ujian", "profil"].forEach(p => {
     $("page-" + p).classList.toggle("show", p === nama);
     $("nav-" + p).classList.toggle("active", p === nama);
   });
@@ -1235,6 +1293,142 @@ Object.assign(window, { showPage, toggleSidebar, closeSidebar, handleLogout, loa
   $("todayDate").textContent = labelTanggalHariIni();
   loadData();
 })();
+
+/* ===== Ujian (guru) ===== */
+let bankSoalGuru = [], ujianGuru = [], sesiUjianGuru = [];
+
+async function postAksi(action, muatan) {
+  const res = await fetch(API_URL, {
+    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ token: tokenSesi(), action: action }, muatan || {}))
+  });
+  const d = await res.json();
+  if (d.kodeError === "SESI") { sesiBerakhir(); throw new Error("Sesi berakhir"); }
+  if (!d.success) throw new Error(d.error || "Gagal menyimpan.");
+  return d;
+}
+function kelasUnikGuru() {
+  const m = new Map();
+  kelasSaya.forEach(k => { if (!m.has(String(k.Kode))) m.set(String(k.Kode), k); });
+  return Array.from(m.values());
+}
+function renderUjianGuru() {
+  const opsi = kelasUnikGuru().map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} · ${escapeHtml(k.MataPelajaran)}</option>`).join("");
+  const bs = document.getElementById("bsKelas"), bu = document.getElementById("buKelas");
+  if (bs) { const v = bs.value; bs.innerHTML = opsi; if (v) bs.value = v; }
+  if (bu) { const v = bu.value; bu.innerHTML = opsi; if (v) bu.value = v; }
+  renderBankGuru();
+  renderDaftarUjianGuru();
+}
+function renderBankGuru() {
+  const kode = document.getElementById("bsKelas").value;
+  const daftar = bankSoalGuru.filter(s => normKode(s.KodeKelas) === normKode(kode));
+  document.getElementById("bsList").innerHTML = daftar.length
+    ? daftar.map((s, i) => `<div class="u-soal"><p>${i + 1}. ${escapeHtml(s.Pertanyaan)}</p>
+        <div class="meta" style="font-size:12.5px;color:#65738b">A. ${escapeHtml(s.OpsiA)} · B. ${escapeHtml(s.OpsiB)} · C. ${escapeHtml(s.OpsiC)} · D. ${escapeHtml(s.OpsiD)}</div>
+        <div style="font-size:12.5px;margin-top:6px"><strong>Kunci: ${escapeHtml(s.Kunci)}</strong> · Bobot ${escapeHtml(s.Bobot)}${String(s.IDGuru) === String(guru.id) ? "" : " · dari guru lain"}</div>
+        ${String(s.IDGuru) === String(guru.id) ? `<div class="u-aksi"><button class="edit" onclick="ubahSoalForm('${escapeAttr(s.ID)}')">✎ Ubah</button><button class="edit" onclick="hapusSoalGuru('${escapeAttr(s.ID)}')">Hapus</button></div>` : ""}
+      </div>`).join("")
+    : `<div class="empty-note">Belum ada soal untuk kelas ini.</div>`;
+}
+function ubahSoalForm(id) {
+  const s = bankSoalGuru.find(x => String(x.ID) === String(id));
+  if (!s) return;
+  document.querySelector("#page-ujian details").open = true;
+  document.getElementById("bsId").value = s.ID;
+  document.getElementById("bsPertanyaan").value = s.Pertanyaan;
+  document.getElementById("bsA").value = s.OpsiA; document.getElementById("bsB").value = s.OpsiB;
+  document.getElementById("bsC").value = s.OpsiC; document.getElementById("bsD").value = s.OpsiD;
+  document.getElementById("bsKunci").value = s.Kunci; document.getElementById("bsBobot").value = s.Bobot;
+}
+function resetFormSoal() {
+  ["bsId","bsPertanyaan","bsA","bsB","bsC","bsD"].forEach(i => document.getElementById(i).value = "");
+  document.getElementById("bsKunci").value = "A"; document.getElementById("bsBobot").value = "1";
+}
+async function simpanSoal() {
+  const id = document.getElementById("bsId").value;
+  const muatan = {
+    kodeKelas: document.getElementById("bsKelas").value,
+    pertanyaan: document.getElementById("bsPertanyaan").value,
+    opsiA: document.getElementById("bsA").value, opsiB: document.getElementById("bsB").value,
+    opsiC: document.getElementById("bsC").value, opsiD: document.getElementById("bsD").value,
+    kunci: document.getElementById("bsKunci").value, bobot: document.getElementById("bsBobot").value
+  };
+  try {
+    if (id) { muatan.id = id; await postAksi("ubahSoal", muatan); }
+    else await postAksi("tambahSoal", muatan);
+    tampilkanToast("✓ Soal tersimpan.");
+    resetFormSoal();
+    await loadData();
+  } catch (err) { alert(err.message || err); }
+}
+async function hapusSoalGuru(id) {
+  if (!confirm("Hapus soal ini dari bank? Ujian yang sedang berjalan tidak terpengaruh.")) return;
+  try { await postAksi("hapusSoal", { id: id }); tampilkanToast("✓ Soal dihapus."); await loadData(); }
+  catch (err) { alert(err.message || err); }
+}
+async function buatUjianGuru() {
+  const muatan = {
+    kodeKelas: document.getElementById("buKelas").value,
+    judul: document.getElementById("buJudul").value,
+    jumlahSoal: document.getElementById("buJumlah").value,
+    durasiMenit: document.getElementById("buDurasi").value
+  };
+  try {
+    const d = await postAksi("buatUjian", muatan);
+    document.getElementById("buHasil").innerHTML = `<div class="setup-banner" style="margin-top:12px"><strong>Ujian dibuat (status Draf).</strong>Token kelas: <span class="u-chip">${escapeHtml(d.token)}</span><br><small>Buka ujian saat mulai, lalu bagikan token ke kelas.</small></div>`;
+    document.getElementById("buJudul").value = "";
+    await loadData();
+  } catch (err) { alert(err.message || err); }
+}
+function renderDaftarUjianGuru() {
+  const box = document.getElementById("ujianListGuru");
+  if (!box) return;
+  if (!ujianGuru.length) { box.innerHTML = `<div class="empty-note">Belum ada ujian.</div>`; return; }
+  box.innerHTML = ujianGuru.slice().reverse().map(u => {
+    const sesi = sesiUjianGuru.filter(s => String(s.IDUjian) === String(u.ID));
+    const selesai = sesi.filter(s => s.Status === "Selesai").length;
+    const tombol = [];
+    if (u.Status !== "Dibuka") tombol.push(`<button class="edit" onclick="aksiUjianGuru('bukaUjian','${escapeAttr(u.ID)}')">▶ Buka Ujian</button>`);
+    if (u.Status === "Dibuka") tombol.push(`<button class="edit" onclick="aksiUjianGuru('tutupUjian','${escapeAttr(u.ID)}')">■ Tutup Ujian</button>`);
+    if (u.NilaiDibuka !== "Ya") tombol.push(`<button class="edit" onclick="aksiUjianGuru('bukaNilai','${escapeAttr(u.ID)}')">Buka Nilai</button>`);
+    const baris = sesi.length ? sesi.map(s => `<tr>
+        <td>${escapeHtml(s.Nama)}</td>
+        <td>${escapeHtml(s.Status)}</td>
+        <td>${s.Skor !== "" && s.Skor !== undefined ? escapeHtml(s.Skor) : "-"}</td>
+        <td><button class="edit" onclick="lihatDetailSesi('${escapeAttr(s.ID)}')">Jawaban</button>
+            <button class="edit" onclick="bukaUlangSesiGuru('${escapeAttr(u.ID)}','${escapeAttr(s.Nama)}')">Buka Ulang</button></td></tr>`).join("")
+      : `<tr><td colspan="4" class="empty-note">Belum ada siswa yang memulai.</td></tr>`;
+    return `<div class="u-kartu">
+      <h3>${escapeHtml(u.Judul)}</h3>
+      <div class="u-meta">${escapeHtml(u.KodeKelas)} · ${escapeHtml(u.JumlahSoal)} soal · ${escapeHtml(u.DurasiMenit)} menit · Status: <strong>${escapeHtml(u.Status)}</strong> · Nilai ${u.NilaiDibuka === "Ya" ? "dibuka" : "belum dibuka"} · ${selesai}/${sesi.length} selesai</div>
+      <div>Token: <span class="u-chip">${escapeHtml(u.Token)}</span></div>
+      <div class="u-aksi">${tombol.join("")}</div>
+      <table class="u-tabel"><thead><tr><th>Siswa</th><th>Status</th><th>Skor</th><th>Aksi</th></tr></thead><tbody>${baris}</tbody></table>
+    </div>`;
+  }).join("");
+}
+async function aksiUjianGuru(action, id) {
+  try { await postAksi(action, { id: id }); tampilkanToast("✓ Perubahan disimpan."); await loadData(); }
+  catch (err) { alert(err.message || err); }
+}
+async function bukaUlangSesiGuru(idUjian, nama) {
+  if (!confirm(`Buka ulang ujian untuk ${nama}? Jawaban lama dihapus dan siswa mendapat soal baru.`)) return;
+  try { await postAksi("bukaUlangSesi", { idUjian: idUjian, nama: nama }); tampilkanToast("✓ Sesi dibuka ulang."); await loadData(); }
+  catch (err) { alert(err.message || err); }
+}
+async function lihatDetailSesi(idSesi) {
+  try {
+    const d = await postAksi("detailSesi", { idSesi: idSesi });
+    document.getElementById("detailIsiGuru").innerHTML = `<p style="margin-bottom:8px"><strong>${escapeHtml(d.nama)}</strong> · ${escapeHtml(d.status)} · Skor ${d.skor !== "" ? escapeHtml(d.skor) : "-"}</p>` +
+      d.soal.map(s => `<div class="u-soal"><p>${s.no}. ${escapeHtml(s.pertanyaan)}</p>
+        <div style="font-size:13px">Jawab: <strong>${escapeHtml(s.jawaban || "(kosong)")}</strong> · Kunci: <strong>${escapeHtml(s.kunci)}</strong> · Bobot ${s.bobot}
+        <span class="jp-sumber ${s.benar ? "jp-ikut" : "jp-khusus"}">${s.benar ? "Benar" : "Salah"}</span></div></div>`).join("");
+    document.getElementById("detailCardGuru").style.display = "";
+    document.getElementById("detailCardGuru").scrollIntoView({ behavior: "smooth" });
+  } catch (err) { alert(err.message || err); }
+}
+function tutupDetail() { document.getElementById("detailCardGuru").style.display = "none"; }
 </script>
 </body>
 </html>

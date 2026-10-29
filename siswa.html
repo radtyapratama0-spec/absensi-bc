@@ -766,6 +766,21 @@
       .week-grid { grid-template-columns:1fr; }
     }
     @media (max-width:480px) { .number.text { font-size:16px; } }
+
+    /* ===== Ujian ===== */
+    .u-chip { display:inline-block; font-weight:800; font-size:13px; letter-spacing:2px; padding:6px 12px; border-radius:10px; background:#eef3ff; color:#3978ee; }
+    .u-soal { border:1px solid #e5eaf2; border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+    .u-soal p { font-weight:700; margin-bottom:8px; line-height:1.5; }
+    .u-opsi { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #e1e8f2; border-radius:10px; margin-bottom:6px; cursor:pointer; font-size:14px; }
+    .u-opsi input { width:auto; min-height:0; margin:0; accent-color:#3978ee; }
+    .u-opsi.dipilih { border-color:#3978ee; background:#f2f6ff; }
+    .u-timer { font-weight:800; color:#d93c47; font-variant-numeric:tabular-nums; }
+    .u-kartu { border:1px solid #e5eaf2; border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+    .u-kartu h3 { font-size:16px; color:#172846; margin-bottom:4px; }
+    .u-meta { font-size:12.5px; color:#65738b; font-weight:600; margin-bottom:8px; }
+    .u-aksi { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .u-tabel { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+    .u-tabel td, .u-tabel th { padding:7px 6px; border-bottom:1px solid #edf1f6; text-align:left; }
   </style>
 </head>
 <body>
@@ -781,6 +796,7 @@
       <div class="nav-item active" id="nav-beranda" onclick="showPage('beranda')"><span>⌂</span><span>Beranda</span></div>
       <div class="nav-item" id="nav-jadwal" onclick="showPage('jadwal')"><span>▦</span><span>Jadwal</span></div>
       <div class="nav-item" id="nav-spp" onclick="showPage('spp')"><span>▥</span><span>Pembayaran SPP</span></div>
+      <div class="nav-item" id="nav-ujian" onclick="showPage('ujian')"><span>✎</span><span>Ujian</span></div>
       <div class="nav-item" id="nav-profil" onclick="showPage('profil')"><span>☺</span><span>Profil</span></div>
     </nav>
   </aside>
@@ -876,6 +892,23 @@
       </div>
 
       <!-- ===== PROFIL ===== -->
+      <div class="page" id="page-ujian">
+        <div class="heading"><div><h1>Ujian</h1><p>Masukkan token dari guru untuk memulai ujian</p></div></div>
+        <div class="card section" id="ujianMasukCard">
+          <div class="form-row"><label>Token ujian</label><input id="tokenUjianInput" maxlength="6" placeholder="6 karakter" style="text-transform:uppercase;letter-spacing:3px;font-weight:800"></div>
+          <div class="u-aksi"><button class="btn primary" id="btnMulaiUjian" onclick="mulaiUjianSiswa()">Mulai Ujian</button></div>
+        </div>
+        <div class="card section" id="ujianBerjalanCard" style="display:none">
+          <div class="section-title"><h2 id="ujianBerjalanJudul">Ujian</h2><span class="u-timer" id="ujianTimer">--:--</span></div>
+          <div id="soalBox"></div>
+          <div class="u-aksi"><button class="btn danger" onclick="selesaiUjianSiswa()">Selesai &amp; Kumpulkan</button></div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Daftar Ujian Saya</h2></div>
+          <div id="ujianSayaList"><div class="empty-note">Belum ada ujian.</div></div>
+        </div>
+      </div>
+
       <div class="page" id="page-profil">
         <div class="heading">
           <div><h1>Profil Saya</h1><p>Informasi akun siswa kamu</p></div>
@@ -907,7 +940,7 @@
 <script type="module">
 /* KONFIGURASI: API_URL = URL Web App Google Apps Script (sama dengan halaman admin).
    Login dilakukan di index.html, jadi di sini tidak perlu konfigurasi Supabase. */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const VERSI_HALAMAN = "2026-10-19-diagnosa";
@@ -978,6 +1011,7 @@ async function loadData() {
     tampilkanBanner("");
     kelasList = data.kelas || [];
     siswaKelasList = data.siswaKelas || [];
+    ujianSaya = data.ujianSaya || [];
     absensiHariIni = data.absensiHariIni || [];
     absensiBulanIni = data.absensiBulanIni || data.absensiHariIni || [];   // cadangan bila Code.gs belum diperbarui
     waktuServer = data.waktuServer ? Object.assign({}, data.waktuServer, { diambil: Date.now() }) : null;
@@ -986,6 +1020,7 @@ async function loadData() {
     dataSudahDimuat = true;
     terakhirDimuat = new Date(); galatMuat = "";
     renderSemua();
+    renderUjianSiswa();
   } catch (err) {
     console.error(err);
     galatMuat = String(err && err.message ? err.message : err);
@@ -1307,7 +1342,7 @@ async function salinDiagnosa() {
 
 /* ---------- navigasi ---------- */
 function showPage(nama) {
-  ["beranda", "jadwal", "spp", "profil"].forEach(p => {
+  ["beranda", "jadwal", "spp", "ujian", "profil"].forEach(p => {
     $("page-" + p).classList.toggle("show", p === nama);
     $("nav-" + p).classList.toggle("active", p === nama);
   });
@@ -1357,6 +1392,117 @@ window.addEventListener("pageshow", e => { if (e.persisted && !ambilSesi()) loca
   siswa = { id: String(sesi.id), nama: String(sesi.nama || sesi.id) };
   showWorkPage();
 })();
+
+/* ===== Ujian (siswa) ===== */
+function escapeAttr(v) { return escapeHtml(v); }
+let ujianSaya = [], ujianAktifId = null, ujianAktifSoal = [], timerUjianId = null, sisaUjianDetik = 0;
+
+function renderUjianSiswa() {
+  const box = document.getElementById("ujianSayaList");
+  if (!box) return;
+  if (!ujianSaya.length) { box.innerHTML = `<div class="empty-note">Belum ada ujian untuk kelasmu.</div>`; return; }
+  box.innerHTML = ujianSaya.map(u => {
+    let status, aksi = "";
+    if (u.sesi === "Berjalan") { status = "Sedang dikerjakan"; aksi = `<button class="edit" onclick="lanjutkanUjian('${escapeAttr(u.id)}')">Lanjutkan</button>`; }
+    else if (u.sesi === "Selesai") status = u.nilaiDibuka ? `Selesai · Skor ${escapeHtml(u.skor)}` : "Selesai · nilai belum dibuka guru";
+    else status = u.statusUjian === "Dibuka" ? "Belum dikerjakan" : "Ujian belum dibuka";
+    return `<div class="u-kartu">
+      <h3>${escapeHtml(u.judul)}</h3>
+      <div class="u-meta">${escapeHtml(u.kodeKelas)} · ${escapeHtml(u.jumlahSoal)} soal · ${escapeHtml(u.durasiMenit)} menit</div>
+      <div><strong>${status}</strong></div>
+      <div class="u-aksi">${aksi}</div>
+    </div>`;
+  }).join("");
+}
+
+function lanjutkanUjian(idUjian) { document.getElementById("tokenUjianInput").focus(); alert("Masukkan token ujian untuk melanjutkan."); }
+
+async function mulaiUjianSiswa() {
+  const tokenUjian = document.getElementById("tokenUjianInput").value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(tokenUjian)) return alert("Token harus 6 karakter huruf atau angka.");
+  const btn = document.getElementById("btnMulaiUjian");
+  btn.disabled = true;
+  try {
+    const d = await postAksi("mulaiUjian", { tokenUjian: tokenUjian });
+    document.getElementById("tokenUjianInput").value = "";
+    if (d.status === "Selesai") { alert(d.pesan || "Ujian sudah selesai."); await loadData(); return; }
+    await bukaUjianAktif(d.idUjian);
+  } catch (err) { alert(err.message || err); }
+  finally { btn.disabled = false; }
+}
+
+async function bukaUjianAktif(idUjian) {
+  const d = await postAksi("soalUjian", { idUjian: idUjian });
+  if (d.status !== "Berjalan") {
+    alert(d.pesan || "Ujian ini sudah tidak bisa dikerjakan.");
+    await loadData();
+    return;
+  }
+  ujianAktifId = idUjian;
+  ujianAktifSoal = d.soal;
+  sisaUjianDetik = d.sisaDetik;
+  const u = ujianSaya.find(x => String(x.id) === String(idUjian));
+  document.getElementById("ujianBerjalanJudul").textContent = u ? u.judul : "Ujian";
+  document.getElementById("ujianBerjalanCard").style.display = "";
+  renderSoalUjian();
+  jalankanTimerUjian();
+  document.getElementById("ujianBerjalanCard").scrollIntoView({ behavior: "smooth" });
+}
+
+function renderSoalUjian() {
+  document.getElementById("soalBox").innerHTML = ujianAktifSoal.map(s => `<div class="u-soal">
+      <p>${s.no}. ${escapeHtml(s.pertanyaan)}</p>
+      ${s.pilihan.map(p => `<label class="u-opsi ${s.jawaban === p.huruf ? "dipilih" : ""}">
+        <input type="radio" name="soal${s.no}" value="${p.huruf}" ${s.jawaban === p.huruf ? "checked" : ""} onchange="pilihJawaban(${s.no}, '${p.huruf}')">
+        <span><strong>${p.huruf}.</strong> ${escapeHtml(p.teks)}</span></label>`).join("")}
+    </div>`).join("");
+}
+
+async function pilihJawaban(no, huruf) {
+  const soal = ujianAktifSoal.find(s => s.no === no);
+  if (soal) soal.jawaban = huruf;
+  try { await postAksi("jawabUjian", { idUjian: ujianAktifId, no: no, pilihan: huruf }); }
+  catch (err) { alert(err.message || err); }
+}
+
+function jalankanTimerUjian() {
+  clearInterval(timerUjianId);
+  const tampil = () => {
+    const m = Math.floor(sisaUjianDetik / 60), s = sisaUjianDetik % 60;
+    document.getElementById("ujianTimer").textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  };
+  tampil();
+  timerUjianId = setInterval(() => {
+    sisaUjianDetik--;
+    tampil();
+    if (sisaUjianDetik <= 0) { clearInterval(timerUjianId); selesaiUjianSiswa(true); }
+  }, 1000);
+}
+
+async function selesaiUjianSiswa(otomatis) {
+  if (!otomatis && !confirm("Kumpulkan ujian sekarang? Jawaban tidak bisa diubah setelah dikumpulkan.")) return;
+  clearInterval(timerUjianId);
+  try {
+    const d = await postAksi("selesaiUjian", { idUjian: ujianAktifId });
+    const pesan = d.nilaiDibuka ? `Ujian selesai. Skor kamu: ${d.skor}` : "Ujian selesai. Nilai akan dibuka oleh guru.";
+    alert(pesan);
+  } catch (err) { alert(err.message || err); }
+  ujianAktifId = null; ujianAktifSoal = [];
+  document.getElementById("ujianBerjalanCard").style.display = "none";
+  await loadData();
+}
+
+async function postAksi(action, muatan) {
+  const res = await fetch(API_URL, {
+    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ token: tokenSesi(), action: action }, muatan || {}))
+  });
+  const d = await res.json();
+  if (d.kodeError === "SESI") { sesiBerakhir(); throw new Error("Sesi berakhir"); }
+  if (!d.success) throw new Error(d.error || "Gagal.");
+  return d;
+}
+Object.assign(window, { mulaiUjianSiswa, pilihJawaban, selesaiUjianSiswa, lanjutkanUjian });
 </script>
 </body>
 </html>
