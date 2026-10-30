@@ -1091,17 +1091,13 @@ function kontrolAbsen(k) {
     const cls = String(rec.Status || "").toLowerCase();
     return `<div class="absen-row"><span class="status ${cls}">${escapeHtml(rec.Status)}</span><span class="absen-info">Tercatat pukul ${escapeHtml(rec.JamMasuk)}</span></div>`;
   }
-  const mulai = parseJam(k.JamMulai), selesai = parseJam(k.JamSelesai);
-  if (mulai === null || selesai === null || selesai <= mulai) {
-    return `<div class="absen-row"><span class="absen-info">Jam kelas belum diatur. Hubungi admin.</span></div>`;
-  }
-  const buka = mulai - (Number(pengaturanAbsen.bukaSebelumMenit) || 0);
+  const mulai = Number(pengaturanAbsen.mulaiMenit) || 360, selesai = Number(pengaturanAbsen.selesaiMenit) || 1140;
   const sekarang = Math.floor(menitSekarang());   // dibulatkan ke menit, sama seperti server
-  if (sekarang < buka) {
-    return `<div class="absen-row"><span class="absen-info">Absen dibuka pukul ${jamDariMenit(buka)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
+  if (sekarang < mulai) {
+    return `<div class="absen-row"><span class="absen-info">Absen dibuka mulai pukul ${jamDariMenit(mulai)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
   }
   if (sekarang > selesai) {
-    return `<div class="absen-row"><span class="absen-info">Waktu absen sudah berakhir</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
+    return `<div class="absen-row"><span class="absen-info">Absen ditutup pukul ${jamDariMenit(selesai)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
   }
   return `<div class="absen-row"><span class="absen-info">Absen sudah dibuka</span><button class="btn-absen" data-kode="${escapeHtml(kode)}" onclick="absenSekarang(this)">✓ Absen Sekarang</button></div>`;
 }

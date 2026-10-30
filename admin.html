@@ -1010,7 +1010,7 @@
 <div class="modal" id="modal">
   <div class="modal-box">
     <h2 id="modalTitle">Catat Absensi</h2>
-    <div class="form-row"><label>Tanggal</label><input type="date" id="absenTanggal" onchange="perbaruiInfoAbsen(true)"></div>
+    <div class="form-row"><label>Tanggal</label><input type="date" id="absenTanggal" onchange="isiKelasUntukTanggal(elId('kelasSelect').value); perbaruiInfoAbsen(true)"></div>
     <div class="form-row"><label>Kelas</label><select id="kelasSelect" onchange="isiPilihanSiswa(); perbaruiInfoAbsen(true)"><option value="">-- Pilih Kelas --</option></select></div>
     <div class="form-row"><label>Nama Siswa</label><select id="studentName" onchange="perbaruiInfoAbsen(true)"><option value="">-- Pilih kelas dulu --</option></select></div>
     <div class="hint-box" id="absenInfo"></div>
@@ -1088,7 +1088,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -1525,9 +1525,7 @@ function bukaCatatAbsensi(awal) {
   inpTgl.value = tgl > hariIni ? hariIni : tgl;
 
   const selKelas = elId("kelasSelect");
-  selKelas.innerHTML = kelasList.length
-    ? `<option value="">-- Pilih Kelas --</option>` + kelasList.map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} - ${escapeHtml(k.MataPelajaran)}</option>`).join("")
-    : `<option value="">Belum ada data kelas — isi sheet "Kelas" dahulu</option>`;
+  isiKelasUntukTanggal(awal.kode || "");
   selKelas.value = awal.kode || "";
   isiPilihanSiswa(awal.nama);
   elId("status").value = awal.status || "Hadir";
@@ -1547,6 +1545,21 @@ function petunjukTanpaSiswa(kode) {
   siswaKelasList.forEach(s => { const k = String(s.KodeKelas).trim() || "(kosong)"; hitung[k] = (hitung[k] || 0) + 1; });
   const daftar = Object.keys(hitung).sort().map(k => `${k} (${hitung[k]})`).join(", ");
   return `Tidak ada siswa dengan kode kelas "${kode}" di sheet SiswaKelas. Kode yang terbaca di kolom KodeKelas: ${daftar}. Samakan penulisannya dengan kolom Kode di sheet Kelas.`;
+}
+
+// Hanya menampilkan kelas yang berlangsung pada tanggal yang dipilih
+function isiKelasUntukTanggal(pilih) {
+  const sel = elId("kelasSelect");
+  const tgl = elId("absenTanggal").value;
+  const hari = tgl ? namaHariDariTanggal(tgl) : "";
+  const daftar = kelasList.filter(k => !hari || hariCocokAdm(k.Hari, hari) || (pilih && normKodeAdm(k.Kode) === normKodeAdm(pilih)));
+  sel.innerHTML = !kelasList.length
+    ? `<option value="">Belum ada data kelas — isi sheet "Kelas" dahulu</option>`
+    : daftar.length
+      ? `<option value="">-- Pilih Kelas --</option>` + daftar.map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} - ${escapeHtml(k.MataPelajaran)}</option>`).join("")
+      : `<option value="">Tidak ada kelas pada hari ${escapeHtml(hari)}</option>`;
+  if (pilih) sel.value = pilih;
+  isiPilihanSiswa();
 }
 
 function isiPilihanSiswa(pilih) {
@@ -1678,7 +1691,7 @@ function renderJadwalPage() {
   const hint = elId("jadwalHint");
   if (pengaturanAbsenInfo) {
     hint.textContent = pengaturanAbsenInfo.aktif
-      ? `Absen siswa dibuka ${pengaturanAbsenInfo.bukaSebelumMenit} menit sebelum jam mulai dan ditutup saat jam selesai. Mengubah jam di sini langsung berlaku untuk absen siswa.`
+      ? `Absen siswa dan guru dibuka pada hari kelas, pukul 06.00 sampai 19.00. Jam di sini hanya pengingat.`
       : "Fitur absen mandiri siswa sedang dimatikan (pengaturan ABSEN_MANDIRI_AKTIF di Code.gs).";
   } else { hint.textContent = ""; }
 
@@ -1722,8 +1735,7 @@ function pratinjauJamKelas() {
   const el = elId("editPratinjau");
   if (mulai === null || selesai === null) { el.textContent = ""; return; }
   if (selesai <= mulai) { el.textContent = "⚠ Jam selesai harus lebih akhir dari jam mulai."; return; }
-  const menit = pengaturanAbsenInfo ? Number(pengaturanAbsenInfo.bukaSebelumMenit) || 0 : 15;
-  el.textContent = `Siswa bisa absen mulai ${jamDariMenit(Math.max(mulai - menit, 0))} sampai ${jamDariMenit(selesai)} (${menit} menit sebelum kelas mulai sampai kelas selesai).`;
+  el.textContent = `Jam ini sebagai pengingat. Absen tersedia pada hari kelas, pukul 06.00 sampai 19.00.`;
 }
 
 async function saveKelasEdit() {

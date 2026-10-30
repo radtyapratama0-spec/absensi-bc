@@ -1075,17 +1075,12 @@ function jendelaHariIni() {
   const hari = hariIniNama();
   const kls = kelasSaya.filter(k => hariCocok(k.Hari, hari));
   if (!kls.length) return { kelas: [], ok: false, pesan: `Tidak ada jadwal mengajar hari ini (${hari}).` };
-  let m = null, s = null;
-  const dilewati = [];
-  for (const k of kls) {
-    const a = parseJam(k.JamMulai), b = parseJam(k.JamSelesai);
-    if (a === null || b === null || b <= a) { dilewati.push(k.Kode); continue; }
-    m = m === null ? a : Math.min(m, a);
-    s = s === null ? b : Math.max(s, b);
-  }
-  if (m === null) return { kelas: kls, ok: false, dilewati, pesan: `Jam mengajar hari ini belum diatur untuk kelas ${dilewati.join(", ")}. Hubungi admin.` };
-  const buka = m - (pengaturanAbsen ? Number(pengaturanAbsen.bukaSebelumMenit) || 0 : 15);
-  return { kelas: kls, ok: true, buka, selesai: s, dilewati };
+  return {
+    kelas: kls, ok: true,
+    buka: pengaturanAbsen ? Number(pengaturanAbsen.mulaiMenit) || 360 : 360,
+    selesai: pengaturanAbsen ? Number(pengaturanAbsen.selesaiMenit) || 1140 : 1140,
+    dilewati: []
+  };
 }
 
 function kontrolAbsenGuru() {
@@ -1097,8 +1092,8 @@ function kontrolAbsenGuru() {
   const j = jendelaHariIni();
   if (!j.ok) return `<div class="absen-row"><span class="absen-info">${escapeHtml(j.pesan)}</span></div>`;
   const sekarang = Math.floor(menitSekarang());
-  if (sekarang < j.buka) return `<div class="absen-row"><span class="absen-info">Absen dibuka pukul ${jamDariMenit(j.buka)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
-  if (sekarang > j.selesai) return `<div class="absen-row"><span class="absen-info">Waktu absen sudah berakhir</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
+  if (sekarang < j.buka) return `<div class="absen-row"><span class="absen-info">Absen dibuka mulai pukul ${jamDariMenit(j.buka)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
+  if (sekarang > j.selesai) return `<div class="absen-row"><span class="absen-info">Absen ditutup pukul ${jamDariMenit(j.selesai)}</span><button class="btn-absen" disabled>✓ Absen</button></div>`;
   const catatan = j.dilewati && j.dilewati.length ? ` <small>(kelas ${escapeHtml(j.dilewati.join(", "))} belum ada jam, dilewati)</small>` : "";
   return `<div class="absen-row"><span class="absen-info">Absen sudah dibuka untuk ${j.kelas.length} kelas hari ini${catatan}</span><button class="btn-absen" id="absenGuruBtn" onclick="absenGuruSekarang()">✓ Absen Sekarang</button></div>`;
 }
