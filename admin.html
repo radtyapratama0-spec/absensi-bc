@@ -944,12 +944,19 @@
           </div>
         </div>
         <div class="card section">
+          <div class="harian-bar">
+            <button class="btn-kecil" onclick="eksporRangkuman('absensi')">⬇ Ekspor Absensi ke Google Sheet</button>
+            <button class="btn-kecil" onclick="eksporRangkuman('spp')">⬇ Ekspor SPP ke Google Sheet</button>
+            <span id="rkLinkEkspor" style="font-size:13px"></span>
+          </div>
+        </div>
+        <div class="card section">
           <div class="section-title"><h2>Absensi per Siswa</h2></div>
-          <div class="hint-box">Tanggal Hadir menampilkan tanggal kehadiran. Izin, Sakit, dan Alfa ditampilkan sebagai jumlah hari.</div>
+          <div class="hint-box">Tanggal pertemuan menampilkan tanggal siswa hadir di kelas Matematika dan English pada bulan ini. Total Hadir adalah jumlah pertemuan hadir dari kedua kelompok.</div>
           <div class="table-wrap stack">
             <table>
-              <thead><tr><th>Nama</th><th>Tanggal Hadir</th><th>Total Hadir</th><th>Izin</th><th>Sakit</th><th>Alfa</th></tr></thead>
-              <tbody id="rkAbsenBody"><tr class="empty-row"><td colspan="6">Memuat data…</td></tr></tbody>
+              <thead><tr><th>Nama</th><th>Tanggal Pertemuan Matematika</th><th>Tanggal Pertemuan English</th><th>Total Hadir</th></tr></thead>
+              <tbody id="rkAbsenBody"><tr class="empty-row"><td colspan="4">Memuat data…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1088,7 +1095,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/library/d/1g1zvmn1fVhCSNUl0WScn_xpF8zSpjmucYkREVTJO03VIhCh0mr3GbNWy/20";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -1811,7 +1818,7 @@ function renderJadwalSiswa() {
     const mulai = String(x.JamMulai || "").trim() ? x.JamMulai : (k ? k.JamMulai : "");
     const selesai = String(x.JamSelesai || "").trim() ? x.JamSelesai : (k ? k.JamSelesai : "");
     return `<tr>
-      <td data-label="Nama Siswa"><strong>${escapeHtml(x.Nama)}</strong></td>
+      <td data-label="Nama Siswa"><strong>${escapeHtml(x.Nama)}</strong>${(() => { const lain = siswaKelasList.filter(y => normNamaAdm(y.Nama) === normNamaAdm(x.Nama) && normKodeAdm(y.KodeKelas) !== normKodeAdm(kode)).map(y => y.KodeKelas); return lain.length ? `<div style="font-size:12px;color:#65738b">Juga ikut: ${escapeHtml(lain.join(", "))}</div>` : ""; })()}</td>
       <td data-label="Hari">${escapeHtml(hari || "-")}</td>
       <td data-label="Jam">${jamTampil(mulai, selesai)}</td>
       <td data-label="Sumber">${infoSumber(String(x.Hari || "").trim(), String(x.JamMulai || "").trim() || String(x.JamSelesai || "").trim())}</td>
@@ -1951,20 +1958,37 @@ async function loadRangkuman() {
   }
 }
 
+// Kelompok pelajaran untuk rekap: dibaca dari nama mata pelajaran di tab Kelas
+const MAPEL_REKAP = [
+  { judul: "Matematika", cocok: /matematika/i },
+  { judul: "English", cocok: /english|conversation|basic|beginner|intermediate|bimbel\s*9|advance/i }
+];
+let rkBarisAbsen = [], rkBarisSpp = [];
+
+function kelompokRekap(teksKelas) {
+  const t = String(teksKelas || "");
+  const i = t.indexOf(" - ");
+  const mapel = i >= 0 ? t.slice(i + 3) : t;
+  const g = MAPEL_REKAP.find(x => x.cocok.test(mapel));
+  return g ? g.judul : "";
+}
+
 function tampilRangkuman() {
   const ym = elId("rkBulan").value;
   const bulanNama = namaBulan[Number(ym.slice(5, 7)) - 1];
   const siswa = rkSiswaUnik();
   const absen = rkDataAbsen || [];
+  const pad = n => String(n).padStart(2, "0");
 
-  // Absensi: hitung per hari unik untuk setiap status
+  // Hari hadir per kelompok pelajaran (unik per hari)
   const absenBaris = siswa.map(([key, nama]) => {
-    const milik = absen.filter(r => normNamaAdm(r.Nama) === key);
-    const hari = st => Array.from(new Set(milik
-      .filter(r => String(r.Status || "").trim().toLowerCase() === st)
+    const hadir = absen.filter(r => normNamaAdm(r.Nama) === key && String(r.Status || "").trim().toLowerCase() === "hadir");
+    const hari = grup => Array.from(new Set(hadir
+      .filter(r => kelompokRekap(r.Kelas) === grup)
       .map(r => Number(String(r.Tanggal).slice(8, 10)))))
       .sort((a, b) => a - b);
-    return { nama, hadir: hari("hadir"), izin: hari("izin").length, sakit: hari("sakit").length, alfa: hari("alfa").length };
+    const mat = hari("Matematika"), eng = hari("English");
+    return { nama, mat, eng, total: mat.length + eng.length };
   });
 
   // SPP: Lunas bila ada catatan Lunas di bulan itu; selain itu Belum Lunas
@@ -1983,14 +2007,12 @@ function tampilRangkuman() {
   elId("rkStatus").textContent = status;
 
   elId("rkAbsenBody").innerHTML = !siswa.length
-    ? `<tr class="empty-row"><td colspan="6">Belum ada data siswa.</td></tr>`
+    ? `<tr class="empty-row"><td colspan="4">Belum ada data siswa.</td></tr>`
     : absenBaris.map(x => `<tr>
         <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
-        <td data-label="Tanggal Hadir" class="rk-hari">${x.hadir.length ? x.hadir.join(", ") : "-"}</td>
-        <td data-label="Total Hadir"><strong>${x.hadir.length}</strong></td>
-        <td data-label="Izin">${x.izin}</td>
-        <td data-label="Sakit">${x.sakit}</td>
-        <td data-label="Alfa">${x.alfa}</td>
+        <td data-label="Tanggal Pertemuan Matematika" class="rk-hari">${x.mat.length ? x.mat.map(d => pad(d)).join(", ") : "-"}</td>
+        <td data-label="Tanggal Pertemuan English" class="rk-hari">${x.eng.length ? x.eng.map(d => pad(d)).join(", ") : "-"}</td>
+        <td data-label="Total Hadir"><strong>${x.total}</strong></td>
       </tr>`).join("");
 
   elId("rkSppBody").innerHTML = !siswa.length
@@ -1999,6 +2021,35 @@ function tampilRangkuman() {
         <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
         <td data-label="Keterangan"><span class="status ${x.lunas ? "lunas" : "belumlunas"}">${x.lunas ? "Lunas" : "Belum Lunas"}</span></td>
       </tr>`).join("");
+
+  // data untuk ekspor (tanggal lengkap yyyy-MM-dd)
+  const tglLengkap = d => `${ym}-${pad(d)}`;
+  rkBarisAbsen = [["Nama", "Tanggal Pertemuan Matematika", "Tanggal Pertemuan English", "Total Hadir"]]
+    .concat(absenBaris.map(x => [x.nama, x.mat.map(tglLengkap).join(", "), x.eng.map(tglLengkap).join(", "), x.total]));
+  rkBarisSpp = [["Nama", "Keterangan"]].concat(spp.map(x => [x.nama, x.lunas ? "Lunas" : "Belum Lunas"]));
+}
+
+async function eksporRangkuman(jenis) {
+  const ym = elId("rkBulan").value || rkBulanIni();
+  const baris = jenis === "absensi" ? rkBarisAbsen : rkBarisSpp;
+  if (baris.length <= 1) return alert("Belum ada data untuk diekspor. Pilih bulan dan tunggu data termuat.");
+  const link = elId("rkLinkEkspor");
+  link.textContent = "Membuat Google Sheet…";
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ token: tokenSesi(), action: "eksporRekap", jenis: jenis, bulan: ym, baris: baris })
+    });
+    const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
+    if (!data.success) throw new Error(data.error || "Gagal membuat laporan.");
+    link.innerHTML = `<a href="${escapeAttr(data.url)}" target="_blank" rel="noopener" style="font-weight:800;color:#3978ee">Buka ${escapeHtml(data.judul)} ↗</a> <small>(File → Download untuk Excel atau PDF)</small>`;
+    tampilkanToast("✓ Laporan dibuat di Google Sheet.");
+  } catch (err) {
+    link.textContent = "";
+    alert("Gagal membuat laporan: " + (err.message || err));
+  }
 }
 
 function openKelasModal() {
@@ -2027,29 +2078,6 @@ function showKelasRoster(kode, mapel) {
   openKelasModal();
 }
 
-async function editStatus(id, currentStatus) {
-  const next = prompt("Ubah status: Hadir / Izin / Sakit / Alfa", currentStatus);
-  if (!next) return;
-  const valid = ["Hadir", "Izin", "Sakit", "Alfa"];
-  if (!valid.includes(next)) { alert("Status tidak valid. Gunakan salah satu dari: Hadir, Izin, Sakit, Alfa."); return; }
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: tokenSesi(), action: "update", id, status: next })
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || "Gagal menyimpan");
-    await loadData();
-  } catch (err) {
-    alert("Gagal menyimpan perubahan. Periksa koneksi internet dan URL API. Detail: " + (err.message || err));
-  }
-}
-
-function openModal(title) {
-  document.getElementById("modalTitle").textContent = title;
-  document.getElementById("modal").classList.add("show");
-}
 function closeModal() {
   document.getElementById("modal").classList.remove("show");
 }
@@ -2093,10 +2121,6 @@ async function saveSiswaKelas() {
     btn.textContent = "Simpan";
   }
 }
-function scrollToJadwal() {
-  document.getElementById("jadwalSection").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
 function toggleSidebar() {
   const terbuka = document.querySelector(".sidebar").classList.toggle("open");
   document.getElementById("sidebarOverlay").classList.toggle("show", terbuka);
