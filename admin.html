@@ -970,7 +970,46 @@
             </table>
           </div>
         </div>
-      </div>
+              <div class="card section">
+          <div class="section-title"><h2>Rekap Tentor</h2></div>
+          <div class="hint-box">Ringkasan per tentor untuk bulan yang dipilih di atas. Hari libur tidak dihitung. Persentase = hari hadir ÷ hari jadwal.</div>
+          <div class="harian-bar">
+            <button class="btn-kecil" onclick="eksporRangkuman('guru')">⬇ Ekspor Rekap Tentor ke Google Sheet</button>
+            <span id="rkLinkEksporGuru" style="font-size:13px"></span>
+          </div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Nama</th><th>ID</th><th>Hari Jadwal</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Tidak Absen</th><th>Persentase</th></tr></thead>
+              <tbody id="rkTentorBody"><tr class="empty-row"><td colspan="8">Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+          <h3 style="margin-top:16px;font-size:15px">Detail per tanggal</h3>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Tanggal</th><th>Nama</th><th>Kelas</th><th>Status</th></tr></thead>
+              <tbody id="rkTentorDetailBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Catat Status Tentor</h2></div>
+          <div class="hint-box">Untuk mencatat Izin atau Sakit tentor, atau memperbaiki status Hadir pada tanggal tertentu.</div>
+          <div class="form-row"><label>Tentor</label><select id="stTentor"></select></div>
+          <div class="form-row"><label>Tanggal</label><input type="date" id="stTanggal"></div>
+          <div class="form-row"><label>Status</label><select id="stStatus"><option>Hadir</option><option>Izin</option><option>Sakit</option></select></div>
+          <div class="harian-bar"><button class="btn primary" onclick="catatStatusTentorAdmin()">Simpan Status</button></div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Hari Libur</h2></div>
+          <div class="hint-box">Tanggal libur tidak dihitung dalam rekap tentor.</div>
+          <div class="harian-bar">
+            <input type="date" id="libTanggal" style="padding:9px 10px;border:1px solid #dce3ed;border-radius:10px;font:inherit">
+            <input id="libKet" maxlength="100" placeholder="Keterangan, cth: Libur Nasional" style="flex:1;min-width:160px;padding:9px 10px;border:1px solid #dce3ed;border-radius:10px;font:inherit">
+            <button class="btn-kecil" onclick="tambahLiburAdmin()">+ Tambah Libur</button>
+          </div>
+          <div id="liburList"></div>
+        </div>
+</div>
 
       <div id="laporanPage" style="display:none">
         <div class="heading">
@@ -1095,7 +1134,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -1161,6 +1200,8 @@ async function loadData() {
     kelasList = data.kelas || [];
     pengaturanAbsenInfo = data.pengaturanAbsen || null;
     guruKelasList = data.guruKelas || [];
+    hariLiburList = data.hariLibur || [];
+    renderLiburList();
     siswaKelasList = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
     waktuServerAdmin = data.waktuServer || null;
@@ -1953,6 +1994,7 @@ async function loadRangkuman() {
     rkDataAbsen = Array.isArray(data.absensiRentang) ? data.absensiRentang : null;
     rkBulanDimuat = ym;
     tampilRangkuman();
+    loadRekapTentor(ym);
   } catch (err) {
     elId("rkStatus").textContent = "Gagal memuat: " + (err.message || err);
   }
@@ -1964,6 +2006,7 @@ const MAPEL_REKAP = [
   { judul: "English", cocok: /english|conversation|basic|beginner|intermediate|bimbel\s*9|advance/i }
 ];
 let rkBarisAbsen = [], rkBarisSpp = [];
+let hariLiburList = [], rkDataTentor = [], rkBarisTentor = [];
 
 function kelompokRekap(teksKelas) {
   const t = String(teksKelas || "");
@@ -2031,9 +2074,9 @@ function tampilRangkuman() {
 
 async function eksporRangkuman(jenis) {
   const ym = elId("rkBulan").value || rkBulanIni();
-  const baris = jenis === "absensi" ? rkBarisAbsen : rkBarisSpp;
+  const baris = jenis === "absensi" ? rkBarisAbsen : (jenis === "guru" ? rkBarisTentor : rkBarisSpp);
   if (baris.length <= 1) return alert("Belum ada data untuk diekspor. Pilih bulan dan tunggu data termuat.");
-  const link = elId("rkLinkEkspor");
+  const link = elId(jenis === "guru" ? "rkLinkEksporGuru" : "rkLinkEkspor");
   link.textContent = "Membuat Google Sheet…";
   try {
     const res = await fetch(API_URL, {
@@ -2050,6 +2093,117 @@ async function eksporRangkuman(jenis) {
     link.textContent = "";
     alert("Gagal membuat laporan: " + (err.message || err));
   }
+}
+
+/* ===== Rekap tentor, catat status tentor, dan hari libur ===== */
+async function postAdmin(action, muatan) {
+  const res = await fetch(API_URL, {
+    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ token: tokenSesi(), action: action }, muatan || {}))
+  });
+  const d = await res.json();
+  if (d.kodeError === "SESI") { sesiBerakhir(); throw new Error("Sesi berakhir"); }
+  if (!d.success) throw new Error(d.error || "Gagal menyimpan.");
+  return d;
+}
+
+async function segarkanTentor() {
+  await loadData();
+  await loadRekapTentor(elId("rkBulan").value || rkBulanIni());
+}
+
+async function loadRekapTentor(ym) {
+  const r = rkRentang(ym);
+  try {
+    const res = await fetch(API_URL + "?token=" + encodeURIComponent(tokenSesi()) + "&rekapTentor=1&dari=" + r.dari + "&sampai=" + r.sampai);
+    const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
+    if (!data.success) throw new Error(data.error || "Gagal memuat rekap tentor.");
+    rkDataTentor = data.tentor || [];
+    renderRekapTentor();
+  } catch (err) {
+    elId("rkTentorBody").innerHTML = `<tr class="empty-row"><td colspan="8">Gagal memuat rekap tentor: ${escapeHtml(err.message || err)}</td></tr>`;
+  }
+}
+
+function renderRekapTentor() {
+  const body = elId("rkTentorBody"), det = elId("rkTentorDetailBody"), pilih = elId("stTentor");
+  elId("stTanggal").max = hariIniStr();
+  if (!rkDataTentor.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="8">Belum ada tentor di sheet GuruKelas.</td></tr>`;
+    det.innerHTML = ""; pilih.innerHTML = `<option value="">Belum ada tentor</option>`;
+    rkBarisTentor = [];
+    return;
+  }
+  body.innerHTML = rkDataTentor.map(t => `<tr>
+      <td data-label="Nama"><strong>${escapeHtml(t.nama)}</strong></td>
+      <td data-label="ID">${escapeHtml(t.id)}</td>
+      <td data-label="Hari Jadwal">${t.dijadwalkan}</td>
+      <td data-label="Hadir">${t.hadir}</td>
+      <td data-label="Izin">${t.izin}</td>
+      <td data-label="Sakit">${t.sakit}</td>
+      <td data-label="Tidak Absen">${t.tidakAbsen}</td>
+      <td data-label="Persentase"><strong>${t.persentase === null ? "-" : t.persentase + "%"}</strong></td>
+    </tr>`).join("");
+
+  const baris = rkDataTentor.flatMap(t => t.detail.map(d => Object.assign({ nama: t.nama }, d)))
+    .sort((x, y) => (x.tanggal + x.nama).localeCompare(y.tanggal + y.nama, "id"));
+  det.innerHTML = baris.length ? baris.map(d => `<tr>
+      <td data-label="Tanggal">${escapeHtml(labelTanggalPanjang(d.tanggal))}</td>
+      <td data-label="Nama">${escapeHtml(d.nama)}</td>
+      <td data-label="Kelas">${escapeHtml(d.kelas || "-")}</td>
+      <td data-label="Status">${escapeHtml(d.status)}</td>
+    </tr>`).join("") : `<tr class="empty-row"><td colspan="4">Belum ada data pada bulan ini.</td></tr>`;
+
+  const sebelum = pilih.value;
+  pilih.innerHTML = rkDataTentor.map(t => `<option value="${escapeAttr(t.id)}">${escapeHtml(t.nama)}</option>`).join("");
+  if (sebelum && rkDataTentor.some(t => t.id === sebelum)) pilih.value = sebelum;
+
+  rkBarisTentor = [["Nama", "ID Tentor", "Hari Jadwal", "Hadir", "Izin", "Sakit", "Tidak Absen", "Persentase"]]
+    .concat(rkDataTentor.map(t => [t.nama, t.id, t.dijadwalkan, t.hadir, t.izin, t.sakit, t.tidakAbsen, t.persentase === null ? "-" : t.persentase + "%"]));
+  rkBarisTentor.push([]);
+  rkBarisTentor.push(["Tanggal", "Nama", "Kelas", "Status"]);
+  baris.forEach(d => rkBarisTentor.push([d.tanggal, d.nama, d.kelas, d.status]));
+}
+
+function renderLiburList() {
+  const box = elId("liburList");
+  if (!box) return;
+  if (!hariLiburList.length) { box.innerHTML = `<div class="empty-note">Belum ada hari libur.</div>`; return; }
+  box.innerHTML = hariLiburList.slice().sort((x, y) => String(x.Tanggal).localeCompare(String(y.Tanggal)))
+    .map(l => `<div class="belum-item"><span><strong>${escapeHtml(l.Tanggal)}</strong> · ${escapeHtml(l.Keterangan || "Libur")}</span>
+      <button class="edit" onclick="hapusLiburAdmin('${escapeAttr(l.Tanggal)}')">Hapus</button></div>`).join("");
+}
+
+async function tambahLiburAdmin() {
+  const tgl = elId("libTanggal").value, ket = elId("libKet").value.trim();
+  if (!tgl) return alert("Pilih tanggal libur.");
+  try {
+    await postAdmin("tambahLibur", { tanggal: tgl, keterangan: ket });
+    elId("libTanggal").value = ""; elId("libKet").value = "";
+    tampilkanToast("✓ Hari libur ditambahkan.");
+    await segarkanTentor();
+  } catch (err) { alert(err.message || err); }
+}
+
+async function hapusLiburAdmin(tgl) {
+  if (!confirm("Hapus hari libur " + tgl + "?")) return;
+  try {
+    await postAdmin("hapusLibur", { tanggal: tgl });
+    tampilkanToast("✓ Hari libur dihapus.");
+    await segarkanTentor();
+  } catch (err) { alert(err.message || err); }
+}
+
+async function catatStatusTentorAdmin() {
+  const id = elId("stTentor").value, tgl = elId("stTanggal").value, status = elId("stStatus").value;
+  if (!id) return alert("Pilih tentor.");
+  if (!tgl) return alert("Pilih tanggal.");
+  try {
+    await postAdmin("catatStatusTentor", { idGuru: id, tanggal: tgl, status: status });
+    tampilkanToast("✓ Status tentor tersimpan.");
+    await loadRekapTentor(elId("rkBulan").value || rkBulanIni());
+  } catch (err) { alert(err.message || err); }
 }
 
 function openKelasModal() {
