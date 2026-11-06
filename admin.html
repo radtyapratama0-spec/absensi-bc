@@ -795,6 +795,7 @@
       <div class="nav-item" id="navLaporan" onclick="showPage('laporan'); closeSidebar()"><span>▥</span><span>Laporan SPP</span></div>
       <div class="nav-item" id="navRangkuman" onclick="showPage('rangkuman'); closeSidebar()"><span>▤</span><span>Rangkuman</span></div>
       <div class="nav-item" id="navLaporanGuru" onclick="showPage('laporanGuru'); closeSidebar()"><span>✎</span><span>Laporan Guru</span></div>
+      <div class="nav-item" id="navPerbaikNama" onclick="showPage('perbaikNama'); closeSidebar()"><span>✏</span><span>Perbaiki Nama</span></div>
       <div class="nav-item" onclick="alert('Buka file Google Sheets kamu untuk mengatur data Kelas.'); closeSidebar()"><span>⚙</span><span>Pengaturan</span></div>
     </nav>
   </aside>
@@ -1025,6 +1026,30 @@
         </div>
       </div>
 
+      <div id="perbaikNamaPage" style="display:none">
+        <div class="heading">
+          <div><h1>Perbaiki Nama Siswa</h1><p>Nama baru diterapkan ke kelas, absensi, SPP, ujian, dan akun login siswa</p></div>
+        </div>
+        <div class="card section">
+          <div class="hint-box">Langkah: pilih siswa, tulis nama yang benar, tekan <strong>Cek Dampak</strong> untuk melihat jumlah data yang akan berubah, lalu tekan <strong>Terapkan Perubahan</strong>. Perubahan tidak bisa dibatalkan otomatis, tetapi setiap perubahan tercatat di riwayat.</div>
+          <div class="form-row"><label>Siswa</label><select id="pnSiswa" onchange="pnResetPreview()"></select></div>
+          <div class="form-row"><label>Nama yang benar</label><input id="pnBaru" maxlength="100" placeholder="Tulis nama lengkap yang benar" oninput="pnResetPreview()"></div>
+          <div class="harian-bar">
+            <button class="btn-kecil" onclick="pnCek()">Cek Dampak</button>
+            <button class="btn primary" id="pnTerapkan" onclick="pnTerapkan()" disabled>Terapkan Perubahan</button>
+          </div>
+          <div id="pnHasil" style="margin-top:12px"></div>
+        </div>
+        <div class="card section">
+          <div class="section-title"><h2>Riwayat Perubahan Nama</h2></div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Waktu</th><th>Admin</th><th>Nama Lama</th><th>Nama Baru</th><th>Dampak</th></tr></thead>
+              <tbody id="pnRiwayat"><tr class="empty-row"><td colspan="5">Belum ada perubahan.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <div id="laporanPage" style="display:none">
         <div class="heading">
           <div><h1>Laporan SPP</h1><p>Rekap pembayaran SPP siswa Bina Cendekia</p></div>
@@ -1082,8 +1107,19 @@
 <div class="modal" id="siswaModal">
   <div class="modal-box">
     <h2>Tambah Siswa</h2>
-    <div class="form-row"><label>Nama Siswa</label><input id="siswaName" placeholder="Masukkan nama siswa"></div>
-    <div class="form-row"><label>Kelas</label><select id="siswaKelasSelect"><option value="">-- Pilih Kelas --</option></select></div>
+    <div class="form-row" style="display:flex;gap:14px;flex-wrap:wrap">
+      <label style="font-weight:700"><input type="radio" name="siswaMode" value="baru" checked onchange="gantiModeSiswa()"> Siswa baru</label>
+      <label style="font-weight:700"><input type="radio" name="siswaMode" value="lama" onchange="gantiModeSiswa()"> Tambah kelas untuk siswa yang sudah ada</label>
+    </div>
+    <div id="siswaFieldsBaru">
+      <div class="form-row"><label>Nama lengkap</label><input id="siswaName" placeholder="Nama sesuai data sekolah"></div>
+      <div class="form-row"><label>Password awal (minimal 6 karakter)</label><input id="siswaPassword" placeholder="Tulis password untuk siswa"></div>
+      <p style="font-size:12.5px;color:#65738b;margin-bottom:8px">ID siswa dibuat otomatis (BC000001, BC000002, ...) dan ditampilkan setelah berhasil disimpan.</p>
+    </div>
+    <div id="siswaFieldsLama" style="display:none">
+      <div class="form-row"><label>Siswa</label><select id="siswaExisting"></select></div>
+    </div>
+    <div class="form-row"><label>Kelas (boleh lebih dari satu)</label><div class="hari-grid" id="siswaKelasChecks"></div></div>
     <div class="modal-actions"><button class="btn cancel" onclick="closeSiswaModal()">Batal</button><button class="btn primary" id="saveSiswaBtn" onclick="saveSiswaKelas()">Simpan</button></div>
   </div>
 </div>
@@ -1215,6 +1251,7 @@ async function loadData() {
     pengaturanAbsenInfo = data.pengaturanAbsen || null;
     guruKelasList = data.guruKelas || [];
     hariLiburList = data.hariLibur || [];
+    riwayatNamaList = data.riwayatNama || [];
     renderLiburList();
     siswaKelasList = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
@@ -1278,7 +1315,8 @@ function showPage(page) {
     jadwal: ["jadwalPage", "navJadwal"],
     laporan: ["laporanPage", "navLaporan"],
     rangkuman: ["rangkumanPage", "navRangkuman"],
-    laporanGuru: ["laporanGuruPage", "navLaporanGuru"]
+    laporanGuru: ["laporanGuruPage", "navLaporanGuru"],
+    perbaikNama: ["perbaikNamaPage", "navPerbaikNama"]
   };
   if (!halaman[page]) page = "dashboard";
   Object.keys(halaman).forEach(k => {
@@ -1289,6 +1327,7 @@ function showPage(page) {
   if (page === "laporan") renderLaporanSPP();
   if (page === "rangkuman") renderRangkuman();
   if (page === "laporanGuru") renderLaporanGuru();
+  if (page === "perbaikNama") renderPerbaikNama();
   if (page === "jadwal") renderJadwalPage();
   window.scrollTo({ top: 0 });
 }
@@ -2022,6 +2061,7 @@ const MAPEL_REKAP = [
 ];
 let rkBarisAbsen = [], rkBarisSpp = [];
 let hariLiburList = [], rkDataTentor = [], rkBarisTentor = [];
+let riwayatNamaList = [], pnPreview = null;
 
 function kelompokRekap(teksKelas) {
   const t = String(teksKelas || "");
@@ -2227,6 +2267,72 @@ async function catatStatusTentorAdmin() {
   } catch (err) { alert(err.message || err); }
 }
 
+/* ===== Perbaiki nama siswa ===== */
+function renderPerbaikNama() {
+  const pilih = elId("pnSiswa");
+  const sebelum = pilih.value;
+  const nama = Array.from(new Set(siswaKelasList.map(s => String(s.Nama || "").trim()).filter(Boolean)))
+    .sort((x, y) => x.localeCompare(y, "id"));
+  pilih.innerHTML = `<option value="">-- Pilih siswa --</option>` + nama.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join("");
+  if (sebelum && nama.includes(sebelum)) pilih.value = sebelum;
+  const riwayat = elId("pnRiwayat");
+  riwayat.innerHTML = riwayatNamaList.length
+    ? riwayatNamaList.slice().reverse().map(r => `<tr>
+        <td data-label="Waktu">${escapeHtml(r.Waktu)}</td>
+        <td data-label="Admin">${escapeHtml(r.Admin)}</td>
+        <td data-label="Nama Lama">${escapeHtml(r.NamaLama)}</td>
+        <td data-label="Nama Baru"><strong>${escapeHtml(r.NamaBaru)}</strong></td>
+        <td data-label="Dampak" style="font-size:12px">${escapeHtml(r.Tabel)}</td>
+      </tr>`).join("")
+    : `<tr class="empty-row"><td colspan="5">Belum ada perubahan.</td></tr>`;
+}
+
+function pnResetPreview() {
+  pnPreview = null;
+  elId("pnTerapkan").disabled = true;
+  elId("pnHasil").innerHTML = "";
+}
+
+async function pnCek() {
+  const lama = elId("pnSiswa").value, baru = elId("pnBaru").value.trim();
+  if (!lama) return alert("Pilih siswa dulu.");
+  if (!baru) return alert("Tulis nama yang benar.");
+  try {
+    const d = await postAdmin("cekUbahNama", { namaLama: lama, namaBaru: baru });
+    pnPreview = { lama: lama, baru: baru };
+    const j = d.jumlah;
+    elId("pnHasil").innerHTML = `<div class="setup-banner">
+      <strong>Dampak perubahan: "${escapeHtml(lama)}" → "${escapeHtml(baru)}"</strong>
+      Kelas: ${escapeHtml(d.kelas.join(", "))}<br>
+      Data kelas (SiswaKelas): ${j.SISWA_KELAS} baris · Absensi: ${j.ABSENSI} baris · SPP: ${j.SPP} baris · Ujian: ${j.SESI_UJIAN} baris<br>
+      Akun login siswa juga akan diperbarui.</div>`;
+    elId("pnTerapkan").disabled = false;
+  } catch (err) {
+    pnResetPreview();
+    alert(err.message || err);
+  }
+}
+
+async function pnTerapkan() {
+  if (!pnPreview) return alert("Cek dampak dulu sebelum menerapkan.");
+  if (!confirm(`Ubah nama "${pnPreview.lama}" menjadi "${pnPreview.baru}" di semua data?`)) return;
+  const btn = elId("pnTerapkan");
+  btn.disabled = true; btn.textContent = "Menerapkan…";
+  try {
+    const d = await postAdmin("ubahNamaSiswa", { namaLama: pnPreview.lama, namaBaru: pnPreview.baru, konfirmasi: "YA" });
+    tampilkanToast(`✓ Nama diubah menjadi "${d.baru}".`);
+    elId("pnBaru").value = "";
+    pnResetPreview();
+    await loadData();
+    renderPerbaikNama();
+  } catch (err) {
+    alert(err.message || err);
+  } finally {
+    btn.textContent = "Terapkan Perubahan";
+    btn.disabled = pnPreview === null;
+  }
+}
+
 function openKelasModal() {
   document.getElementById("kelasModal").classList.add("show");
 }
@@ -2257,43 +2363,54 @@ function closeModal() {
   document.getElementById("modal").classList.remove("show");
 }
 function openSiswaModal() {
-  const select = document.getElementById("siswaKelasSelect");
-  select.innerHTML = kelasList.length
-    ? `<option value="">-- Pilih Kelas --</option>` + kelasList.map(k =>
-        `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} - ${escapeHtml(k.MataPelajaran)}</option>`
-      ).join("")
-    : `<option value="">Belum ada data kelas — isi sheet "Kelas" dahulu</option>`;
-  document.getElementById("siswaModal").classList.add("show");
+  elId("siswaName").value = "";
+  elId("siswaPassword").value = "";
+  const modeBaru = document.querySelector('input[name="siswaMode"][value="baru"]');
+  modeBaru.checked = true;
+  gantiModeSiswa();
+  const nama = Array.from(new Set(siswaKelasList.map(s => String(s.Nama || "").trim()).filter(Boolean))).sort((x, y) => x.localeCompare(y, "id"));
+  elId("siswaExisting").innerHTML = nama.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join("");
+  elId("siswaKelasChecks").innerHTML = kelasList.map(k =>
+    `<label><input type="checkbox" value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} · ${escapeHtml(k.MataPelajaran)}</label>`).join("");
+  elId("siswaModal").classList.add("show");
 }
+
+function gantiModeSiswa() {
+  const lama = document.querySelector('input[name="siswaMode"][value="lama"]').checked;
+  elId("siswaFieldsBaru").style.display = lama ? "none" : "";
+  elId("siswaFieldsLama").style.display = lama ? "" : "none";
+}
+
 function closeSiswaModal() {
   document.getElementById("siswaModal").classList.remove("show");
 }
 async function saveSiswaKelas() {
-  const nama = document.getElementById("siswaName").value.trim();
-  const kodeKelas = document.getElementById("siswaKelasSelect").value;
-  if (!nama) return alert("Nama siswa belum diisi.");
-  if (!kodeKelas) return alert('Kelas belum dipilih. Tambahkan data kelas di sheet "Kelas" dahulu.');
-  if (!API_URL) return alert("Website belum terhubung ke Google Sheets. Isi API_URL di kode terlebih dahulu.");
-
-  const btn = document.getElementById("saveSiswaBtn");
-  btn.disabled = true;
-  btn.textContent = "Menyimpan…";
+  const mode = document.querySelector('input[name="siswaMode"]:checked').value;
+  const kelas = Array.from(document.querySelectorAll("#siswaKelasChecks input:checked")).map(x => x.value);
+  if (!kelas.length) return alert("Pilih minimal satu kelas.");
+  const btn = elId("saveSiswaBtn");
+  btn.disabled = true; btn.textContent = "Menyimpan…";
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: tokenSesi(), action: "addSiswaKelas", nama, kodeKelas })
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || "Gagal menyimpan");
-    closeSiswaModal();
-    document.getElementById("siswaName").value = "";
+    if (mode === "baru") {
+      const nama = elId("siswaName").value.trim();
+      const password = elId("siswaPassword").value;
+      if (nama.length < 2) throw new Error("Nama siswa belum diisi.");
+      if (password.length < 6) throw new Error("Password minimal 6 karakter.");
+      const d = await postAdmin("tambahSiswaBaru", { nama: nama, password: password, kelas: kelas });
+      closeSiswaModal();
+      alert(`Siswa berhasil ditambahkan.\n\nID: ${d.id}\nNama: ${d.nama}\nPassword awal: ${password}\n\nCatat dan berikan ID serta password ini kepada siswa. Setelah ditutup, password tidak ditampilkan lagi.`);
+    } else {
+      const nama = elId("siswaExisting").value;
+      if (!nama) throw new Error("Pilih siswa yang sudah ada.");
+      for (const kode of kelas) await postAdmin("addSiswaKelas", { nama: nama, kodeKelas: kode });
+      closeSiswaModal();
+      tampilkanToast("✓ Kelas ditambahkan untuk " + nama + ".");
+    }
     await loadData();
   } catch (err) {
-    alert("Gagal menyimpan data. Periksa koneksi internet dan URL API. Detail: " + (err.message || err));
+    alert(err.message || err);
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Simpan";
+    btn.disabled = false; btn.textContent = "Simpan";
   }
 }
 function toggleSidebar() {
