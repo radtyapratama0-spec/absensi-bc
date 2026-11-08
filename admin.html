@@ -796,6 +796,7 @@
       <div class="nav-item" id="navRangkuman" onclick="showPage('rangkuman'); closeSidebar()"><span>▤</span><span>Rangkuman</span></div>
       <div class="nav-item" id="navLaporanGuru" onclick="showPage('laporanGuru'); closeSidebar()"><span>✎</span><span>Laporan Guru</span></div>
       <div class="nav-item" id="navPerbaikNama" onclick="showPage('perbaikNama'); closeSidebar()"><span>✏</span><span>Perbaiki Nama</span></div>
+      <div class="nav-item" id="navAkunSiswa" onclick="showPage('akunSiswa'); closeSidebar()"><span>☰</span><span>Akun Siswa</span></div>
       <div class="nav-item" onclick="alert('Buka file Google Sheets kamu untuk mengatur data Kelas.'); closeSidebar()"><span>⚙</span><span>Pengaturan</span></div>
     </nav>
   </aside>
@@ -1048,6 +1049,33 @@
               <tbody id="pnRiwayat"><tr class="empty-row"><td colspan="5">Belum ada perubahan.</td></tr></tbody>
             </table>
           </div>
+        </div>
+      </div>
+      <div id="akunSiswaPage" style="display:none">
+        <div class="heading">
+          <div><h1>Akun Siswa</h1><p>Berikan ID dan password kepada siswa, atau ubah akun yang sudah ada</p></div>
+        </div>
+        <div class="card section">
+          <div class="harian-bar">
+            <input id="akunCari" placeholder="Cari nama siswa" oninput="renderAkunSiswa()" style="flex:1;min-width:160px;padding:9px 10px;border:1px solid #dce3ed;border-radius:10px;font:inherit">
+            <button class="btn-kecil" onclick="loadAkunSiswa()">↻ Muat Ulang</button>
+          </div>
+          <div class="hint-box">Daftar ini berisi siswa dari sheet SiswaKelas. Password tidak bisa dilihat lagi setelah disimpan, jadi catat saat ditampilkan.</div>
+          <div class="table-wrap stack">
+            <table>
+              <thead><tr><th>Nama</th><th>Status Akun</th><th>ID</th><th>Aksi</th></tr></thead>
+              <tbody id="akunBody"><tr class="empty-row"><td colspan="4">Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="akunModal">
+        <div class="modal-box">
+          <h2 id="akunJudul">Akun Siswa</h2>
+          <div id="akunFieldPassword" class="form-row"><label>Password</label><input id="akunPassword" placeholder="Minimal 6 karakter"></div>
+          <div class="hint-box" id="akunInfo"></div>
+          <div class="modal-actions"><button class="btn cancel" onclick="tutupAkunModal()">Batal</button><button class="btn primary" id="akunSimpan" onclick="simpanAkunModal()">Simpan</button></div>
         </div>
       </div>
       <div id="laporanPage" style="display:none">
@@ -1316,7 +1344,8 @@ function showPage(page) {
     laporan: ["laporanPage", "navLaporan"],
     rangkuman: ["rangkumanPage", "navRangkuman"],
     laporanGuru: ["laporanGuruPage", "navLaporanGuru"],
-    perbaikNama: ["perbaikNamaPage", "navPerbaikNama"]
+    perbaikNama: ["perbaikNamaPage", "navPerbaikNama"],
+    akunSiswa: ["akunSiswaPage", "navAkunSiswa"]
   };
   if (!halaman[page]) page = "dashboard";
   Object.keys(halaman).forEach(k => {
@@ -1328,6 +1357,7 @@ function showPage(page) {
   if (page === "rangkuman") renderRangkuman();
   if (page === "laporanGuru") renderLaporanGuru();
   if (page === "perbaikNama") renderPerbaikNama();
+  if (page === "akunSiswa") loadAkunSiswa();
   if (page === "jadwal") renderJadwalPage();
   window.scrollTo({ top: 0 });
 }
@@ -2062,6 +2092,7 @@ const MAPEL_REKAP = [
 let rkBarisAbsen = [], rkBarisSpp = [];
 let hariLiburList = [], rkDataTentor = [], rkBarisTentor = [];
 let riwayatNamaList = [], pnPreview = null;
+let akunList = [], akunAksi = null;
 
 function kelompokRekap(teksKelas) {
   const t = String(teksKelas || "");
@@ -2331,6 +2362,114 @@ async function pnTerapkan() {
     btn.textContent = "Terapkan Perubahan";
     btn.disabled = pnPreview === null;
   }
+}
+
+/* ===== Akun siswa ===== */
+async function loadAkunSiswa() {
+  try {
+    const res = await fetch(API_URL + "?token=" + encodeURIComponent(tokenSesi()) + "&akunSiswa=1");
+    const data = await res.json();
+    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
+    if (!data.success) throw new Error(data.error || "Gagal memuat akun siswa.");
+    akunList = data.akun || [];
+    renderAkunSiswa();
+  } catch (err) {
+    elId("akunBody").innerHTML = `<tr class="empty-row"><td colspan="4">Gagal memuat: ${escapeHtml(err.message || err)}</td></tr>`;
+  }
+}
+
+function renderAkunSiswa() {
+  const cari = normNamaAdm(elId("akunCari").value);
+  const daftar = akunList.filter(x => !cari || normNamaAdm(x.nama).includes(cari));
+  const body = elId("akunBody");
+  if (!akunList.length) { body.innerHTML = `<tr class="empty-row"><td colspan="4">Belum ada siswa di sheet SiswaKelas.</td></tr>`; return; }
+  if (!daftar.length) { body.innerHTML = `<tr class="empty-row"><td colspan="4">Tidak ada nama yang cocok.</td></tr>`; return; }
+  const label = {
+    belum: `<span class="status belumlunas">Belum ada akun</span>`,
+    aktif: `<span class="status lunas">Aktif</span>`,
+    nonaktif: `<span class="status belumlunas">Nonaktif</span>`,
+    ganda: `<span class="status belumlunas">Ganda</span>`
+  };
+  body.innerHTML = daftar.map(x => {
+    const i = akunList.indexOf(x);
+    let aksi;
+    if (x.status === "belum") aksi = `<button class="edit" onclick="bukaAkunModal('buat', ${i})">+ Buat Akun</button>`;
+    else if (x.status === "ganda") aksi = `<span style="font-size:12.5px;color:#65738b">Ada lebih dari satu akun dengan nama ini. Periksa manual.</span>`;
+    else aksi = `<button class="edit" onclick="bukaAkunModal('password', ${i})">Ganti Password</button>
+      <button class="edit" onclick="gantiIdAkunAdmin(${i})">Ganti ID</button>
+      <button class="edit" onclick="aturStatusAkunAdmin(${i})">${x.status === "nonaktif" ? "Aktifkan" : "Nonaktifkan"}</button>`;
+    return `<tr>
+      <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
+      <td data-label="Status Akun">${label[x.status] || ""}</td>
+      <td data-label="ID">${x.id ? escapeHtml(x.id) : "-"}</td>
+      <td data-label="Aksi"><div style="display:flex;gap:6px;flex-wrap:wrap">${aksi}</div></td>
+    </tr>`;
+  }).join("");
+}
+
+function bukaAkunModal(aksi, idx) {
+  const x = akunList[idx];
+  if (!x) return;
+  const nama = x.nama;
+  akunAksi = { aksi: aksi, nama: nama, id: x.id };
+  elId("akunJudul").textContent = aksi === "buat" ? `Buat Akun · ${nama}` : `Ganti Password · ${nama}`;
+  elId("akunInfo").textContent = aksi === "buat"
+    ? "ID akan dibuat otomatis (BC + 6 angka). Setelah disimpan, ID dan password ditampilkan sekali."
+    : "Password baru akan ditampilkan sekali setelah disimpan. Catat dan berikan ke siswa.";
+  elId("akunPassword").value = "";
+  elId("akunModal").classList.add("show");
+}
+
+function tutupAkunModal() { elId("akunModal").classList.remove("show"); akunAksi = null; }
+
+async function simpanAkunModal() {
+  if (!akunAksi) return;
+  const password = elId("akunPassword").value;
+  if (password.length < 6) return alert("Password minimal 6 karakter.");
+  const btn = elId("akunSimpan");
+  btn.disabled = true; btn.textContent = "Menyimpan…";
+  try {
+    if (akunAksi.aksi === "buat") {
+      const d = await postAdmin("buatAkunSiswa", { nama: akunAksi.nama, password: password });
+      tutupAkunModal();
+      alert(`Akun berhasil dibuat.\n\nNama: ${d.nama}\nID: ${d.id}\nPassword: ${password}\n\nCatat dan berikan ke siswa. Setelah ditutup, tidak ditampilkan lagi.`);
+    } else {
+      await postAdmin("ubahPasswordAkun", { id: akunAksi.id, password: password });
+      const nama = akunAksi.nama, id = akunAksi.id;
+      tutupAkunModal();
+      alert(`Password berhasil diganti.\n\nNama: ${nama}\nID: ${id}\nPassword baru: ${password}\n\nCatat dan berikan ke siswa. Setelah ditutup, tidak ditampilkan lagi.`);
+    }
+    await loadAkunSiswa();
+  } catch (err) {
+    alert(err.message || err);
+  } finally {
+    btn.disabled = false; btn.textContent = "Simpan";
+  }
+}
+
+async function gantiIdAkunAdmin(idx) {
+  const x = akunList[idx];
+  if (!x) return;
+  const nama = x.nama, id = x.id;
+  if (!confirm(`Ganti ID akun ${nama} (${id})? ID lama tidak bisa dipakai lagi. Sesi yang sedang aktif tetap berlanjut.`)) return;
+  try {
+    const d = await postAdmin("gantiIdAkun", { id: id });
+    alert(`ID berhasil diganti.\n\nNama: ${nama}\nID lama: ${d.idLama}\nID baru: ${d.idBaru}\n\nBerikan ID baru ini kepada siswa.`);
+    await loadAkunSiswa();
+  } catch (err) { alert(err.message || err); }
+}
+
+async function aturStatusAkunAdmin(idx) {
+  const x = akunList[idx];
+  if (!x) return;
+  const nama = x.nama, id = x.id, aktif = x.status === "nonaktif";
+  const kata = aktif ? "Aktifkan" : "Nonaktifkan";
+  if (!confirm(`${kata} akun ${nama} (${id})?` + (aktif ? "" : " Siswa tidak bisa login dan sesinya langsung diputus. Data absensi dan SPP tetap tersimpan."))) return;
+  try {
+    await postAdmin("aturStatusAkun", { id: id, aktif: aktif });
+    tampilkanToast(`✓ Akun ${nama} ${aktif ? "diaktifkan" : "dinonaktifkan"}.`);
+    await loadAkunSiswa();
+  } catch (err) { alert(err.message || err); }
 }
 
 function openKelasModal() {
