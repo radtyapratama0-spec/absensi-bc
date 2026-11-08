@@ -812,6 +812,10 @@
     .jp-ikut { background:#ddf7eb; color:#169660; }
     .jp-khusus { background:#ffe3e5; color:#d93c47; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
 
 <body>
@@ -964,7 +968,7 @@
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const namaHari = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
@@ -1425,5 +1429,6 @@ async function lihatDetailSesi(idSesi) {
 }
 function tutupDetail() { document.getElementById("detailCardGuru").style.display = "none"; }
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>

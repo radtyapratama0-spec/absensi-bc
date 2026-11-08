@@ -780,6 +780,10 @@
     .rk-stat { display:flex; gap:14px; align-items:center; }
     .rk-stat .number { font-size:26px; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
 <body>
 <div id="workPage" style="display:none">
@@ -1212,7 +1216,7 @@
    di bawah ini. Lihat panduan setup untuk cara mendapatkan URL-nya.
    Contoh: "https://script.google.com/macros/s/AKfycb.../exec"
    ==================================================================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 let kelasList = [];
 let pengaturanAbsenInfo = null, editKelasKode = "";
@@ -2672,5 +2676,6 @@ window.addEventListener('pageshow', e => {
 });
 
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>

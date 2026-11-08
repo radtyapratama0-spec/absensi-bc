@@ -751,6 +751,10 @@
     }
     @media (max-width:480px) { .number.text { font-size:16px; } }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
 <body>
 <div id="loginPage">
@@ -900,8 +904,8 @@
    SUPABASE_KEY : Publishable key (atau anon key versi lama). Aman ditaruh di sini,
                   karena tabel akun dikunci dan hanya bisa diakses lewat fungsi login_akun.
    ==================================================================== */
-const SUPABASE_URL = "https://oofuzqvcpgrpmuaqyrnw.supabase.co";   // contoh: https://abcdefghijk.supabase.co
-const SUPABASE_KEY = "sb_publishable_2KsQ3TJZs9xrHNNl5ZluPw_OHHGJykI";   // contoh: sb_publishable_xxxxxxxx
+const SUPABASE_URL = "ISI_SUPABASE_URL";   // contoh: https://abcdefghijk.supabase.co
+const SUPABASE_KEY = "ISI_SUPABASE_KEY";   // contoh: sb_publishable_xxxxxxxx
 
 const $ = (id) => document.getElementById(id);
 
@@ -966,5 +970,6 @@ async function handleLogin() {
   if (s && s.id) keHalaman(s.peran);
 })();
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>

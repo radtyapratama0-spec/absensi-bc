@@ -782,6 +782,10 @@
     .u-tabel { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
     .u-tabel td, .u-tabel th { padding:7px 6px; border-bottom:1px solid #edf1f6; text-align:left; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
 <body>
 <div id="workPage" style="display:none">
@@ -940,7 +944,7 @@
 <script type="module">
 /* KONFIGURASI: API_URL = URL Web App Google Apps Script (sama dengan halaman admin).
    Login dilakukan di index.html, jadi di sini tidak perlu konfigurasi Supabase. */
-const API_URL ="https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const VERSI_HALAMAN = "2026-10-19-diagnosa";
@@ -1500,5 +1504,6 @@ async function postAksi(action, muatan) {
 }
 Object.assign(window, { mulaiUjianSiswa, pilihJawaban, selesaiUjianSiswa, lanjutkanUjian });
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
