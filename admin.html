@@ -781,7 +781,7 @@
     .rk-stat .number { font-size:26px; }
   </style>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
@@ -1057,7 +1057,7 @@
       </div>
       <div id="akunSiswaPage" style="display:none">
         <div class="heading">
-          <div><h1>Akun Siswa</h1><p>Berikan ID dan password kepada siswa, atau ubah akun yang sudah ada</p></div>
+          <div><h1>Akun Siswa</h1><p>Berikan ID dan password kepada siswa, ubah akun yang sudah ada, atau hapus akun siswa yang sudah tidak aktif</p></div>
         </div>
         <div class="card section">
           <div class="harian-bar">
@@ -1082,6 +1082,15 @@
           <div class="modal-actions"><button class="btn cancel" onclick="tutupAkunModal()">Batal</button><button class="btn primary" id="akunSimpan" onclick="simpanAkunModal()">Simpan</button></div>
         </div>
       </div>
+      <div class="modal" id="hapusSiswaModal">
+        <div class="modal-box">
+          <h2>Hapus Akun Siswa</h2>
+          <div class="hint-box" id="hapusInfo"></div>
+          <div class="form-row"><label>Ketik nama siswa untuk konfirmasi</label><input id="hapusKonfirmasi" oninput="cekKonfirmasiHapus()" placeholder="Nama persis seperti di daftar"></div>
+          <div class="modal-actions"><button class="btn cancel" onclick="tutupHapusSiswa()">Batal</button><button class="btn primary" id="hapusSimpan" onclick="prosesHapusSiswa()" disabled>Hapus Akun</button></div>
+        </div>
+      </div>
+
       <div id="laporanPage" style="display:none">
         <div class="heading">
           <div><h1>Laporan SPP</h1><p>Rekap pembayaran SPP siswa Bina Cendekia</p></div>
@@ -2096,7 +2105,7 @@ const MAPEL_REKAP = [
 let rkBarisAbsen = [], rkBarisSpp = [];
 let hariLiburList = [], rkDataTentor = [], rkBarisTentor = [];
 let riwayatNamaList = [], pnPreview = null;
-let akunList = [], akunAksi = null;
+let akunList = [], akunAksi = null, hapusTarget = null;
 
 function kelompokRekap(teksKelas) {
   const t = String(teksKelas || "");
@@ -2406,7 +2415,7 @@ function renderAkunSiswa() {
       <td data-label="Nama"><strong>${escapeHtml(x.nama)}</strong></td>
       <td data-label="Status Akun">${label[x.status] || ""}</td>
       <td data-label="ID">${x.id ? escapeHtml(x.id) : "-"}</td>
-      <td data-label="Aksi"><div style="display:flex;gap:6px;flex-wrap:wrap">${aksi}</div></td>
+      <td data-label="Aksi"><div style="display:flex;gap:6px;flex-wrap:wrap">${aksi}${x.status !== "ganda" ? `<button class="edit" style="color:#d93c47" onclick="bukaHapusSiswa(${i})">Hapus</button>` : ""}</div></td>
     </tr>`;
   }).join("");
 }
@@ -2474,6 +2483,46 @@ async function aturStatusAkunAdmin(idx) {
     tampilkanToast(`✓ Akun ${nama} ${aktif ? "diaktifkan" : "dinonaktifkan"}.`);
     await loadAkunSiswa();
   } catch (err) { alert(err.message || err); }
+}
+
+/* ===== Hapus akun siswa ===== */
+function bukaHapusSiswa(idx) {
+  const x = akunList[idx];
+  if (!x) return;
+  hapusTarget = x;
+  const akun = x.id ? `Akun login: ${x.id} (akan dihapus)` : "Belum punya akun login";
+  elId("hapusInfo").textContent = `Siswa: ${x.nama}. ${akun}. Data kelas dihapus dari sheet. Absensi, SPP, dan ujian dipindahkan ke tab ArsipSiswa dan tetap bisa dilihat. Jumlah siswa di dashboard akan berkurang.`;
+  elId("hapusKonfirmasi").value = "";
+  elId("hapusSimpan").disabled = true;
+  elId("hapusSiswaModal").classList.add("show");
+}
+
+function cekKonfirmasiHapus() {
+  elId("hapusSimpan").disabled = !hapusTarget || normNamaAdm(elId("hapusKonfirmasi").value) !== normNamaAdm(hapusTarget.nama);
+}
+
+function tutupHapusSiswa() {
+  elId("hapusSiswaModal").classList.remove("show");
+  hapusTarget = null;
+}
+
+async function prosesHapusSiswa() {
+  if (!hapusTarget) return;
+  const x = hapusTarget, konfirmasi = elId("hapusKonfirmasi").value;
+  const btn = elId("hapusSimpan");
+  btn.disabled = true; btn.textContent = "Menghapus…";
+  try {
+    const d = await postAdmin("hapusAkunSiswa", { nama: x.nama, id: x.id || "", konfirmasiNama: konfirmasi });
+    tutupHapusSiswa();
+    alert(`Akun ${d.nama} berhasil dihapus.\n\nData yang diarsipkan: ${d.arsip} baris (lihat tab ArsipSiswa).`);
+    await loadAkunSiswa();
+    await loadData();
+  } catch (err) {
+    alert(err.message || err);
+  } finally {
+    btn.textContent = "Hapus Akun";
+    cekKonfirmasiHapus();
+  }
 }
 
 function openKelasModal() {
