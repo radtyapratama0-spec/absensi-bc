@@ -813,7 +813,7 @@
     .jp-khusus { background:#ffe3e5; color:#d93c47; }
   </style>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
@@ -923,7 +923,15 @@
             <div class="form-row"><label>Opsi B</label><input id="bsB"></div>
             <div class="form-row"><label>Opsi C</label><input id="bsC"></div>
             <div class="form-row"><label>Opsi D</label><input id="bsD"></div>
-            <div class="form-row"><label>Kunci jawaban</label><select id="bsKunci"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+                        <div style="border:1px dashed #cfd9e8;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+              <strong style="font-size:13px">Gambar (opsional, JPG/PNG maks. 500 KB)</strong>
+            <div class="form-row"><label>Gambar pertanyaan</label><input type="file" accept="image/jpeg,image/png" onchange="unggahGambarBank(this, 'bsGambarPertanyaan')"> <span class="gambar-status" style="font-size:12.5px;color:#65738b"></span><input type="hidden" id="bsGambarPertanyaan"></div>
+            <div class="form-row"><label>Gambar opsi A</label><input type="file" accept="image/jpeg,image/png" onchange="unggahGambarBank(this, 'bsGambarA')"> <span class="gambar-status" style="font-size:12.5px;color:#65738b"></span><input type="hidden" id="bsGambarA"></div>
+            <div class="form-row"><label>Gambar opsi B</label><input type="file" accept="image/jpeg,image/png" onchange="unggahGambarBank(this, 'bsGambarB')"> <span class="gambar-status" style="font-size:12.5px;color:#65738b"></span><input type="hidden" id="bsGambarB"></div>
+            <div class="form-row"><label>Gambar opsi C</label><input type="file" accept="image/jpeg,image/png" onchange="unggahGambarBank(this, 'bsGambarC')"> <span class="gambar-status" style="font-size:12.5px;color:#65738b"></span><input type="hidden" id="bsGambarC"></div>
+            <div class="form-row"><label>Gambar opsi D</label><input type="file" accept="image/jpeg,image/png" onchange="unggahGambarBank(this, 'bsGambarD')"> <span class="gambar-status" style="font-size:12.5px;color:#65738b"></span><input type="hidden" id="bsGambarD"></div>
+            </div>
+<div class="form-row"><label>Kunci jawaban</label><select id="bsKunci"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
             <div class="form-row"><label>Bobot nilai</label><input id="bsBobot" type="number" min="1" max="100" value="1"></div>
             <div class="u-aksi"><button class="btn primary" onclick="simpanSoal()">Simpan Soal</button><button class="btn" onclick="resetFormSoal()">Kosongkan</button></div>
           </details>
@@ -1311,6 +1319,49 @@ function kelasUnikGuru() {
   kelasSaya.forEach(k => { if (!m.has(String(k.Kode))) m.set(String(k.Kode), k); });
   return Array.from(m.values());
 }
+/* ===== Gambar soal & hapus ujian ===== */
+function bacaFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = () => reject(new Error("Gagal membaca file gambar."));
+    r.readAsDataURL(file);
+  });
+}
+
+async function unggahGambarBank(input, idHidden) {
+  const file = input.files && input.files[0];
+  const status = input.parentElement.querySelector(".gambar-status");
+  if (!file) return;
+  if (!/^image\/(jpeg|png)$/.test(file.type)) { input.value = ""; return alert("Gambar harus JPG atau PNG."); }
+  if (file.size > 500 * 1024) { input.value = ""; return alert("Ukuran gambar maksimal 500 KB. Kecilkan dulu gambarnya."); }
+  const kodeKelas = document.getElementById("bsKelas").value;
+  if (!kodeKelas) { input.value = ""; return alert("Pilih kelas dulu sebelum mengunggah gambar."); }
+  status.textContent = "Mengunggah…";
+  try {
+    const data = await bacaFileBase64(file);
+    const d = await postAksi("unggahGambarSoal", { kodeKelas: kodeKelas, mime: file.type, data: data });
+    document.getElementById(idHidden).value = d.path;
+    status.textContent = "✓ " + file.name;
+  } catch (err) {
+    input.value = ""; status.textContent = "";
+    document.getElementById(idHidden).value = "";
+    alert(err.message || err);
+  }
+}
+
+async function hapusUjianGuru(id) {
+  const u = ujianGuru.find(x => String(x.ID) === String(id));
+  if (!u) return;
+  const ketik = prompt('Hapus ujian "' + u.Judul + '"?\n\nSoal per siswa, jawaban, dan sesi dihapus. Nilai diarsipkan ke tab HasilUjian. Bank soal tetap ada.\n\nKetik judul ujian untuk konfirmasi:');
+  if (ketik === null) return;
+  try {
+    const d = await postAksi("hapusUjian", { id: id, konfirmasiJudul: ketik });
+    tampilkanToast("✓ Ujian dihapus. Nilai " + d.sesi + " siswa diarsipkan.");
+    await loadData();
+  } catch (err) { alert(err.message || err); }
+}
+
 function renderUjianGuru() {
   const opsi = kelasUnikGuru().map(k => `<option value="${escapeAttr(k.Kode)}">${escapeHtml(k.Kode)} · ${escapeHtml(k.MataPelajaran)}</option>`).join("");
   const bs = document.getElementById("bsKelas"), bu = document.getElementById("buKelas");
@@ -1325,7 +1376,7 @@ function renderBankGuru() {
   document.getElementById("bsList").innerHTML = daftar.length
     ? daftar.map((s, i) => `<div class="u-soal"><p>${i + 1}. ${escapeHtml(s.Pertanyaan)}</p>
         <div class="meta" style="font-size:12.5px;color:#65738b">A. ${escapeHtml(s.OpsiA)} · B. ${escapeHtml(s.OpsiB)} · C. ${escapeHtml(s.OpsiC)} · D. ${escapeHtml(s.OpsiD)}</div>
-        <div style="font-size:12.5px;margin-top:6px"><strong>Kunci: ${escapeHtml(s.Kunci)}</strong> · Bobot ${escapeHtml(s.Bobot)}${String(s.IDGuru) === String(guru.id) ? "" : " · dari guru lain"}</div>
+        <div style="font-size:12.5px;margin-top:6px">${(s.GambarPertanyaan || s.GambarA || s.GambarB || s.GambarC || s.GambarD) ? '<span class="jp-sumber jp-ikut">ada gambar</span> ' : ""}<strong>Kunci: ${escapeHtml(s.Kunci)}</strong> · Bobot ${escapeHtml(s.Bobot)}${String(s.IDGuru) === String(guru.id) ? "" : " · dari guru lain"}</div>
         ${String(s.IDGuru) === String(guru.id) ? `<div class="u-aksi"><button class="edit" onclick="ubahSoalForm('${escapeAttr(s.ID)}')">✎ Ubah</button><button class="edit" onclick="hapusSoalGuru('${escapeAttr(s.ID)}')">Hapus</button></div>` : ""}
       </div>`).join("")
     : `<div class="empty-note">Belum ada soal untuk kelas ini.</div>`;
@@ -1339,9 +1390,14 @@ function ubahSoalForm(id) {
   document.getElementById("bsA").value = s.OpsiA; document.getElementById("bsB").value = s.OpsiB;
   document.getElementById("bsC").value = s.OpsiC; document.getElementById("bsD").value = s.OpsiD;
   document.getElementById("bsKunci").value = s.Kunci; document.getElementById("bsBobot").value = s.Bobot;
+  document.getElementById("bsGambarPertanyaan").value = s.GambarPertanyaan || ""; document.getElementById("bsGambarA").value = s.GambarA || "";
+  document.getElementById("bsGambarB").value = s.GambarB || ""; document.getElementById("bsGambarC").value = s.GambarC || ""; document.getElementById("bsGambarD").value = s.GambarD || "";
 }
 function resetFormSoal() {
   ["bsId","bsPertanyaan","bsA","bsB","bsC","bsD"].forEach(i => document.getElementById(i).value = "");
+  ["bsGambarPertanyaan","bsGambarA","bsGambarB","bsGambarC","bsGambarD"].forEach(i => document.getElementById(i).value = "");
+  document.querySelectorAll("#page-ujian details input[type=file]").forEach(f => f.value = "");
+  document.querySelectorAll("#page-ujian details .gambar-status").forEach(s => s.textContent = "");
   document.getElementById("bsKunci").value = "A"; document.getElementById("bsBobot").value = "1";
 }
 async function simpanSoal() {
@@ -1351,7 +1407,9 @@ async function simpanSoal() {
     pertanyaan: document.getElementById("bsPertanyaan").value,
     opsiA: document.getElementById("bsA").value, opsiB: document.getElementById("bsB").value,
     opsiC: document.getElementById("bsC").value, opsiD: document.getElementById("bsD").value,
-    kunci: document.getElementById("bsKunci").value, bobot: document.getElementById("bsBobot").value
+    kunci: document.getElementById("bsKunci").value, bobot: document.getElementById("bsBobot").value,
+    gambarPertanyaan: document.getElementById("bsGambarPertanyaan").value, gambarA: document.getElementById("bsGambarA").value,
+    gambarB: document.getElementById("bsGambarB").value, gambarC: document.getElementById("bsGambarC").value, gambarD: document.getElementById("bsGambarD").value
   };
   try {
     if (id) { muatan.id = id; await postAksi("ubahSoal", muatan); }
@@ -1390,6 +1448,7 @@ function renderDaftarUjianGuru() {
     const tombol = [];
     if (u.Status !== "Dibuka") tombol.push(`<button class="edit" onclick="aksiUjianGuru('bukaUjian','${escapeAttr(u.ID)}')">▶ Buka Ujian</button>`);
     if (u.Status === "Dibuka") tombol.push(`<button class="edit" onclick="aksiUjianGuru('tutupUjian','${escapeAttr(u.ID)}')">■ Tutup Ujian</button>`);
+    if (u.NilaiDibuka === "Ya" && sesi.every(x => x.Status !== "Berjalan")) tombol.push(`<button class="edit" style="color:#d93c47" onclick="hapusUjianGuru('${escapeAttr(u.ID)}')">Hapus Ujian</button>`);
     if (u.NilaiDibuka !== "Ya") tombol.push(`<button class="edit" onclick="aksiUjianGuru('bukaNilai','${escapeAttr(u.ID)}')">Buka Nilai</button>`);
     const baris = sesi.length ? sesi.map(s => `<tr>
         <td>${escapeHtml(s.Nama)}</td>

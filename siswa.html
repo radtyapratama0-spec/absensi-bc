@@ -783,7 +783,7 @@
     .u-tabel td, .u-tabel th { padding:7px 6px; border-bottom:1px solid #edf1f6; text-align:left; }
   </style>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Bina Cendekia">
 </head>
@@ -1452,9 +1452,10 @@ async function bukaUjianAktif(idUjian) {
 function renderSoalUjian() {
   document.getElementById("soalBox").innerHTML = ujianAktifSoal.map(s => `<div class="u-soal">
       <p>${s.no}. ${escapeHtml(s.pertanyaan)}</p>
+      ${s.gambarPertanyaan ? `<img src="${escapeAttr(s.gambarPertanyaan)}" alt="Gambar soal ${s.no}" style="max-width:100%;border-radius:10px;margin-bottom:8px">` : ""}
       ${s.pilihan.map(p => `<label class="u-opsi ${s.jawaban === p.huruf ? "dipilih" : ""}">
         <input type="radio" name="soal${s.no}" value="${p.huruf}" ${s.jawaban === p.huruf ? "checked" : ""} onchange="pilihJawaban(${s.no}, '${p.huruf}')">
-        <span><strong>${p.huruf}.</strong> ${escapeHtml(p.teks)}</span></label>`).join("")}
+        <span><strong>${p.huruf}.</strong> ${escapeHtml(p.teks)}${p.gambar ? `<img src="${escapeAttr(p.gambar)}" alt="" style="display:block;max-width:100%;border-radius:8px;margin-top:6px">` : ""}</span></label>`).join("")}
     </div>`).join("");
 }
 
