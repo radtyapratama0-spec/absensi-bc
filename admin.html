@@ -1014,10 +1014,12 @@
         <div class="card section">
           <div class="section-title"><h2>Catat Status Tentor</h2></div>
           <div class="hint-box">Untuk mencatat Izin atau Sakit tentor, atau memperbaiki status Hadir pada tanggal tertentu.</div>
-          <div class="form-row"><label>Tentor</label><select id="stTentor"></select></div>
-          <div class="form-row"><label>Tanggal</label><input type="date" id="stTanggal"></div>
+          <div class="form-row"><label>Tentor</label><select id="stTentor" onchange="segarkanFormStatus()"></select></div>
+          <div class="form-row"><label>Tanggal</label><input type="date" id="stTanggal" onchange="segarkanFormStatus()"></div>
+          <div id="stInfo" class="hint-box" style="display:none"></div>
+          <div class="form-row"><label>Kelas yang diajar hari itu (centang yang berlaku)</label><div class="hari-grid" id="stKelasBox"></div></div>
           <div class="form-row"><label>Status</label><select id="stStatus"><option>Hadir</option><option>Izin</option><option>Sakit</option></select></div>
-          <div class="harian-bar"><button class="btn primary" onclick="catatStatusTentorAdmin()">Simpan Status</button></div>
+          <div class="harian-bar"><button class="btn primary" id="stSimpan" onclick="catatStatusTentorAdmin()">Simpan Status</button></div>
         </div>
         <div class="card section">
           <div class="section-title"><h2>Hari Libur</h2></div>
@@ -2260,15 +2262,57 @@ async function hapusLiburAdmin(tgl) {
   } catch (err) { alert(err.message || err); }
 }
 
+let stAdaSebelumnya = false;
+
+async function segarkanFormStatus() {
+  const id = elId("stTentor").value, tgl = elId("stTanggal").value;
+  const info = elId("stInfo");
+  info.style.display = "none";
+  elId("stKelasBox").innerHTML = "";
+  elId("stSimpan").textContent = "Simpan Status";
+  stAdaSebelumnya = false;
+  if (!id || !tgl) return;
+  try {
+    const d = await postAdmin("cekStatusTentor", { idGuru: id, tanggal: tgl });
+    stAdaSebelumnya = d.ada;
+    const kelasTercatat = d.kelas ? d.kelas.split(",").map(x => x.trim()) : null;
+    elId("stKelasBox").innerHTML = d.kelasHari.map(k => {
+      const cek = d.ada ? (kelasTercatat && kelasTercatat.includes(k)) : true;
+      return `<label><input type="checkbox" value="${escapeAttr(k)}" ${cek ? "checked" : ""}>${escapeHtml(k)}</label>`;
+    }).join("");
+    if (!d.kelasHari.length) info.textContent = `${d.nama} tidak punya jadwal mengajar pada tanggal ini. Status tetap bisa dicatat tanpa pilihan kelas.`;
+    if (d.ada) {
+      info.textContent = `Sudah tersimpan: ${d.status} (${d.jamMasuk && d.jamMasuk !== "-" ? "pukul " + d.jamMasuk : "dicatat admin"}${d.kelas ? ", kelas " + d.kelas : ""}). Untuk mengubah, pilih status baru lalu tekan Ubah Status.`;
+      elId("stSimpan").textContent = "Ubah Status";
+      elId("stStatus").value = d.status;
+    } else if (d.kelasHari.length) {
+      info.textContent = `Belum ada status untuk ${d.nama} pada tanggal ini.`;
+    }
+    info.style.display = info.textContent ? "" : "none";
+  } catch (err) {
+    info.style.display = "";
+    info.textContent = "Gagal memeriksa status: " + (err.message || err);
+  }
+}
+
 async function catatStatusTentorAdmin() {
   const id = elId("stTentor").value, tgl = elId("stTanggal").value, status = elId("stStatus").value;
   if (!id) return alert("Pilih tentor.");
   if (!tgl) return alert("Pilih tanggal.");
+  if (stAdaSebelumnya && !confirm("Status untuk tentor dan tanggal ini sudah tersimpan. Ubah status sekarang?")) return;
+  const kelas = Array.from(document.querySelectorAll("#stKelasBox input:checked")).map(x => x.value);
+  const btn = elId("stSimpan");
+  btn.disabled = true;
   try {
-    await postAdmin("catatStatusTentor", { idGuru: id, tanggal: tgl, status: status });
+    await postAdmin("catatStatusTentor", { idGuru: id, tanggal: tgl, status: status, kelas: kelas });
     tampilkanToast("✓ Status tentor tersimpan.");
+    await segarkanFormStatus();
     await loadRekapTentor(elId("lgBulan").value || rkBulanIni());
-  } catch (err) { alert(err.message || err); }
+  } catch (err) {
+    alert(err.message || err);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ===== Perbaiki nama siswa ===== */
