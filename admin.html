@@ -1176,11 +1176,7 @@
 <div class="modal" id="kelasEditModal">
   <div class="modal-box">
     <h2 id="editKelasJudul">Atur Jadwal Kelas</h2>
-    <div class="form-row"><label>Hari kelas</label><div class="hari-grid" id="editHariGrid"></div></div>
-    <div class="waktu-grid">
-      <div class="form-row"><label>Jam Mulai</label><input id="editJamMulai" type="time" oninput="pratinjauJamKelas()" onchange="pratinjauJamKelas()"></div>
-      <div class="form-row"><label>Jam Selesai</label><input id="editJamSelesai" type="time" oninput="pratinjauJamKelas()" onchange="pratinjauJamKelas()"></div>
-    </div>
+    <div class="form-row"><label>Hari kelas dan jam per hari (jam kosong = hari tanpa jam pengingat)</label><div id="editHariBox"></div></div>
     <div class="form-row"><label>Ruang</label><input id="editRuang" maxlength="30" placeholder="cth: R1"></div>
     <div class="hint-box" id="editPratinjau"></div>
     <div class="modal-actions"><button class="btn cancel" onclick="closeKelasEdit()">Batal</button><button class="btn primary" id="editKelasSimpan" onclick="saveKelasEdit()">Simpan</button></div>
@@ -1190,11 +1186,7 @@
 <div class="modal" id="jadwalPersonalModal">
   <div class="modal-box">
     <h2 id="jpJudul">Atur Jadwal</h2>
-    <div class="form-row"><label>Hari (kosongkan = ikut jadwal kelas)</label><div class="hari-grid" id="jpHariGrid" onchange="pratinjauJadwalPersonal()"></div></div>
-    <div class="waktu-grid">
-      <div class="form-row"><label>Jam Mulai</label><input id="jpMulai" type="time" oninput="pratinjauJadwalPersonal()" onchange="pratinjauJadwalPersonal()"></div>
-      <div class="form-row"><label>Jam Selesai</label><input id="jpSelesai" type="time" oninput="pratinjauJadwalPersonal()" onchange="pratinjauJadwalPersonal()"></div>
-    </div>
+    <div id="jpHariBox"></div>
     <div class="hint-box" id="jpInfo"></div>
     <div class="modal-actions">
       <button class="btn cancel" onclick="closeJadwalPersonal()">Batal</button>
@@ -1293,6 +1285,7 @@ async function loadData() {
     guruKelasList = data.guruKelas || [];
     hariLiburList = data.hariLibur || [];
     riwayatNamaList = data.riwayatNama || [];
+    jadwalPersonalList = data.jadwalPersonal || [];
     renderLiburList();
     siswaKelasList = data.siswaKelas || [];
     absensiHariIni = data.absensiHariIni || [];
@@ -1801,7 +1794,7 @@ function renderKelasDanJadwal() {
     const warna = warnaKelas[i % warnaKelas.length];
     return `<div class="schedule-item" onclick="showKelasRoster('${escapeAttr(k.Kode)}', '${escapeAttr(k.MataPelajaran)}')">
       <div class="class-code" style="background:${warna.bg};color:${warna.fg}">${escapeHtml(k.Kode)}</div>
-      <div class="schedule-info"><strong>${escapeHtml(k.MataPelajaran)}</strong><small>${escapeHtml(k.JamMulai)} - ${escapeHtml(k.JamSelesai)}</small></div>
+      <div class="schedule-info"><strong>${escapeHtml(k.MataPelajaran)}</strong><small>${escapeHtml(jamHarianTeks(k))}</small></div>
       <span class="room">${escapeHtml(k.Ruang)}</span>
     </div>`;
   }).join("");
@@ -1851,7 +1844,7 @@ function renderJadwalPage() {
       <td data-label="Kode"><strong>${escapeHtml(k.Kode)}</strong></td>
       <td data-label="Mata Pelajaran">${escapeHtml(k.MataPelajaran)}</td>
       <td data-label="Hari">${escapeHtml(daftarHari(k.Hari).join(", ") || "-")}</td>
-      <td data-label="Jam">${escapeHtml(k.JamMulai)} - ${escapeHtml(k.JamSelesai)}</td>
+      <td data-label="Jam">${escapeHtml(jamHarianTeks(k))}</td>
       <td data-label="Ruang">${escapeHtml(k.Ruang || "-")}</td>
       <td data-label="Siswa">${jumlah}</td>
       <td data-label="Aksi"><button class="edit" onclick="openKelasEdit('${escapeAttr(k.Kode)}')">✎ Atur</button></td>
@@ -1864,46 +1857,29 @@ function openKelasEdit(kode) {
   if (!k) return;
   editKelasKode = String(k.Kode).trim();
   elId("editKelasJudul").textContent = `Atur Jadwal — ${k.Kode} · ${k.MataPelajaran}`;
-  const terpilih = daftarHari(k.Hari).map(h => h.toLowerCase());
-  elId("editHariGrid").innerHTML = urutanHariKelas.map(h =>
-    `<label><input type="checkbox" value="${h}" ${terpilih.includes(h.toLowerCase()) ? "checked" : ""}>${h}</label>`).join("");
-  elId("editJamMulai").value = nilaiInputJam(k.JamMulai);
-  elId("editJamSelesai").value = nilaiInputJam(k.JamSelesai);
+  let per = k.JadwalPerHari;
+  if (!per) {
+    per = {};
+    daftarHari(k.Hari).forEach(h => { per[h] = k.JamMulai && k.JamSelesai ? `${k.JamMulai}-${k.JamSelesai}` : ""; });
+  }
+  elId("editHariBox").innerHTML = editorHariHTML("editHariBox", per);
   elId("editRuang").value = k.Ruang || "";
-  pratinjauJamKelas();
+  pratinjauEditorHari("editHariBox");
   elId("kelasEditModal").classList.add("show");
 }
 function closeKelasEdit() { elId("kelasEditModal").classList.remove("show"); }
 
-function pratinjauJamKelas() {
-  const mulai = menitDariJam(elId("editJamMulai").value);
-  const selesai = menitDariJam(elId("editJamSelesai").value);
-  const el = elId("editPratinjau");
-  if (mulai === null || selesai === null) { el.textContent = ""; return; }
-  if (selesai <= mulai) { el.textContent = "⚠ Jam selesai harus lebih akhir dari jam mulai."; return; }
-  el.textContent = `Jam ini sebagai pengingat. Absen tersedia pada hari kelas, pukul 06.00 sampai 19.00.`;
-}
 
 async function saveKelasEdit() {
-  const hari = Array.from(document.querySelectorAll("#editHariGrid input:checked")).map(i => i.value);
-  const jamMulai = elId("editJamMulai").value;
-  const jamSelesai = elId("editJamSelesai").value;
+  const perHari = ambilEditorHari("editHariBox");
   const ruang = elId("editRuang").value.trim();
-  if (!hari.length) { alert("Pilih minimal satu hari."); return; }
-  if (!jamMulai || !jamSelesai) { alert("Jam mulai dan jam selesai wajib diisi."); return; }
-  if (menitDariJam(jamSelesai) <= menitDariJam(jamMulai)) { alert("Jam selesai harus lebih akhir dari jam mulai."); return; }
-
+  if (!perHari.length) return alert("Pilih minimal satu hari kelas.");
+  const salah = perHari.find(x => (x.mulai && !x.selesai) || (!x.mulai && x.selesai));
+  if (salah) return alert(`Hari ${salah.hari}: isi jam mulai dan selesai keduanya, atau kosongkan keduanya.`);
   const btn = elId("editKelasSimpan");
   btn.disabled = true; btn.textContent = "Menyimpan…";
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: tokenSesi(), action: "updateKelas", kode: editKelasKode, hari: urutanHariKelas.filter(h => hari.includes(h)).join(","), jamMulai, jamSelesai, ruang })
-    });
-    const data = await res.json();
-    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
-    if (!data.success) throw new Error(data.error || "Gagal menyimpan jadwal.");
+    await postAdmin("updateJadwalHarian", { kode: editKelasKode, perHari: perHari, ruang: ruang });
     closeKelasEdit();
     tampilkanToast(`✓ Jadwal kelas ${editKelasKode} diperbarui.`);
     await loadData();
@@ -1953,14 +1929,13 @@ function renderJadwalSiswa() {
   if (!kelasList.length) { body.innerHTML = `<tr class="empty-row"><td colspan="5">Belum ada data kelas.</td></tr>`; return; }
   if (!baris.length) { body.innerHTML = `<tr class="empty-row"><td colspan="5">Belum ada siswa di kelas ini.</td></tr>`; return; }
   body.innerHTML = baris.map(x => {
-    const hari = String(x.Hari || "").trim() ? x.Hari : (k ? k.Hari : "");
-    const mulai = String(x.JamMulai || "").trim() ? x.JamMulai : (k ? k.JamMulai : "");
-    const selesai = String(x.JamSelesai || "").trim() ? x.JamSelesai : (k ? k.JamSelesai : "");
+    const jh = jadwalHarianSiswa(x.Nama, kode, k, x);
+    const hari = jh.hari;
     return `<tr>
       <td data-label="Nama Siswa"><strong>${escapeHtml(x.Nama)}</strong>${(() => { const lain = siswaKelasList.filter(y => normNamaAdm(y.Nama) === normNamaAdm(x.Nama) && normKodeAdm(y.KodeKelas) !== normKodeAdm(kode)).map(y => y.KodeKelas); return lain.length ? `<div style="font-size:12px;color:#65738b">Juga ikut: ${escapeHtml(lain.join(", "))}</div>` : ""; })()}</td>
       <td data-label="Hari">${escapeHtml(hari || "-")}</td>
-      <td data-label="Jam">${jamTampil(mulai, selesai)}</td>
-      <td data-label="Sumber">${infoSumber(String(x.Hari || "").trim(), String(x.JamMulai || "").trim() || String(x.JamSelesai || "").trim())}</td>
+      <td data-label="Jam">${escapeHtml(jh.teks)}</td>
+      <td data-label="Sumber">${jh.khusus ? `<span class="jp-sumber jp-khusus">Khusus</span>` : `<span class="jp-sumber jp-ikut">Ikut kelas</span>`}</td>
       <td data-label="Aksi"><button class="edit" data-nama="${escapeAttr(x.Nama)}" data-kode="${escapeAttr(kode)}" onclick="bukaJadwalSiswa(this)">✎ Atur</button></td>
     </tr>`;
   }).join("");
@@ -1971,15 +1946,14 @@ function renderJadwalGuru() {
   if (!guruKelasList.length) { body.innerHTML = `<tr class="empty-row"><td colspan="6">Belum ada penugasan guru. Isi sheet GuruKelas dahulu.</td></tr>`; return; }
   body.innerHTML = guruKelasList.filter(g => String(g.KodeKelas || "").trim()).map(g => {
     const k = kelasList.find(x => normKodeAdm(x.Kode) === normKodeAdm(g.KodeKelas));
-    const hari = String(g.Hari || "").trim() ? g.Hari : (k ? k.Hari : "");
-    const mulai = String(g.JamMulai || "").trim() ? g.JamMulai : (k ? k.JamMulai : "");
-    const selesai = String(g.JamSelesai || "").trim() ? g.JamSelesai : (k ? k.JamSelesai : "");
+    const jh = jadwalHarianGuru(g.IDGuru, g.KodeKelas, k, g);
+    const hari = jh.hari;
     return `<tr>
       <td data-label="ID Guru"><strong>${escapeHtml(g.IDGuru)}</strong></td>
       <td data-label="Kelas">${escapeHtml(g.KodeKelas)}${k ? " · " + escapeHtml(k.MataPelajaran) : ""}</td>
       <td data-label="Hari">${escapeHtml(hari || "-")}</td>
-      <td data-label="Jam">${jamTampil(mulai, selesai)}</td>
-      <td data-label="Sumber">${infoSumber(String(g.Hari || "").trim(), String(g.JamMulai || "").trim() || String(g.JamSelesai || "").trim())}</td>
+      <td data-label="Jam">${escapeHtml(jh.teks)}</td>
+      <td data-label="Sumber">${jh.khusus ? `<span class="jp-sumber jp-khusus">Khusus</span>` : `<span class="jp-sumber jp-ikut">Ikut kelas</span>`}</td>
       <td data-label="Aksi"><button class="edit" data-id="${escapeAttr(g.IDGuru)}" data-kode="${escapeAttr(g.KodeKelas)}" onclick="bukaJadwalGuru(this)">✎ Atur</button></td>
     </tr>`;
   }).join("");
@@ -2002,48 +1976,34 @@ function normKunciAdm(s) { return String(s == null ? "" : s).toLowerCase().repla
 function bukaFormJadwal(judul, baris, k) {
   jpKelasDasar = k || null;
   elId("jpJudul").textContent = judul;
-  const aktif = daftarHari(baris.Hari || "").map(h => h.toLowerCase());
-  elId("jpHariGrid").innerHTML = urutanHariKelas.map(h =>
-    `<label><input type="checkbox" value="${h}" ${aktif.includes(h.toLowerCase()) ? "checked" : ""}>${h}</label>`).join("");
-  elId("jpMulai").value = nilaiInputJam(baris.JamMulai || "");
-  elId("jpSelesai").value = nilaiInputJam(baris.JamSelesai || "");
-  pratinjauJadwalPersonal();
+  const tipe = jpMode === "siswa" ? "Siswa" : "Guru";
+  const id = jpMode === "siswa" ? jpNama : jpIdGuru;
+  const p = jadwalPersonalList.filter(r => r.Tipe === tipe && (tipe === "Siswa" ? normNamaAdm(r.Id) === normNamaAdm(id) : normKunciAdm(r.Id) === normKunciAdm(id)) && normKodeAdm(r.Kode) === normKodeAdm(jpKode));
+  let per = null;
+  if (p.length) { per = {}; p.forEach(r => { per[r.Hari] = r.JamMulai && r.JamSelesai ? `${r.JamMulai}-${r.JamSelesai}` : ""; }); }
+  elId("jpHariBox").innerHTML = editorHariHTML("jpHariBox", per);
+  pratinjauEditorHari("jpHariBox");
   elId("jadwalPersonalModal").classList.add("show");
 }
-
-function pratinjauJadwalPersonal() {
-  const hari = Array.from(document.querySelectorAll("#jpHariGrid input:checked")).map(i => i.value);
-  const jm = elId("jpMulai").value, js = elId("jpSelesai").value;
-  const kelas = jpKelasDasar;
-  const hariEfektif = hari.length ? urutanHariKelas.filter(h => hari.includes(h)).join(", ") : (kelas ? daftarHari(kelas.Hari).join(", ") : "-");
-  const mulai = jm ? menitDariJam(jm) : (kelas ? menitDariJam(kelas.JamMulai) : null);
-  const selesai = js ? menitDariJam(js) : (kelas ? menitDariJam(kelas.JamSelesai) : null);
-  let info = `Berlaku: ${hariEfektif}`;
-  if (mulai !== null && selesai !== null) info += `, ${jamDariMenit(mulai)} - ${jamDariMenit(selesai)}`;
-  if (!hari.length && !jm && !js) info = "Saat disimpan kosong, ikut jadwal kelas: " + (kelas ? `${daftarHari(kelas.Hari).join(", ")}, ${kelas.JamMulai} - ${kelas.JamSelesai}` : "-");
-  if ((jm && !js) || (!jm && js)) info = "⚠ Isi jam mulai dan jam selesai keduanya, atau kosongkan keduanya.";
-  if (mulai !== null && selesai !== null && selesai <= mulai) info = "⚠ Jam selesai harus lebih akhir dari jam mulai.";
-  elId("jpInfo").textContent = info;
-}
-
+function pratinjauJadwalPersonal() { pratinjauEditorHari("jpHariBox"); }
 function closeJadwalPersonal() { elId("jadwalPersonalModal").classList.remove("show"); }
 elId("jadwalPersonalModal").addEventListener("click", e => { if (e.target.id === "jadwalPersonalModal") closeJadwalPersonal(); });
 
 async function simpanJadwalPersonal(ikutKelas) {
-  const hari = ikutKelas ? [] : Array.from(document.querySelectorAll("#jpHariGrid input:checked")).map(i => i.value);
-  const jm = ikutKelas ? "" : elId("jpMulai").value, js = ikutKelas ? "" : elId("jpSelesai").value;
-  if (!ikutKelas && ((jm && !js) || (!jm && js))) return alert("Isi jam mulai dan jam selesai keduanya, atau kosongkan keduanya.");
+  const perHari = ikutKelas ? [] : ambilEditorHari("jpHariBox");
+  if (!ikutKelas) {
+    if (!perHari.length) return alert("Pilih minimal satu hari, atau tekan Ikut Jadwal Kelas.");
+    const salah = perHari.find(x => (x.mulai && !x.selesai) || (!x.mulai && x.selesai));
+    if (salah) return alert(`Hari ${salah.hari}: isi jam mulai dan selesai keduanya, atau kosongkan keduanya.`);
+  }
   const btn = elId("jpSimpan");
   btn.disabled = true; btn.textContent = "Menyimpan…";
   const muatan = jpMode === "siswa"
-    ? { action: "updateJadwalSiswa", nama: jpNama, kodeKelas: jpKode }
-    : { action: "updateJadwalGuru", idGuru: jpIdGuru, kodeKelas: jpKode };
-  Object.assign(muatan, { token: tokenSesi(), hari: hari.join(","), jamMulai: jm, jamSelesai: js });
+    ? { tipe: "Siswa", id: jpNama, kode: jpKode }
+    : { tipe: "Guru", id: jpIdGuru, kode: jpKode };
+  muatan.perHari = perHari;
   try {
-    const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(muatan) });
-    const data = await res.json();
-    if (data.kodeError === "SESI") { sesiBerakhir(); return; }
-    if (!data.success) throw new Error(data.error || "Gagal menyimpan jadwal.");
+    await postAdmin("updateJadwalPersonalHarian", muatan);
     closeJadwalPersonal();
     tampilkanToast(ikutKelas ? "✓ Jadwal dikembalikan mengikuti kelas." : "✓ Jadwal khusus tersimpan.");
     await loadData();
@@ -2053,7 +2013,6 @@ async function simpanJadwalPersonal(ikutKelas) {
     btn.disabled = false; btn.textContent = "Simpan";
   }
 }
-
 /* ===== Rangkuman absensi & SPP ===== */
 let rkDataAbsen = null, rkBulanDimuat = "";
 
@@ -2105,6 +2064,7 @@ const MAPEL_REKAP = [
 let rkBarisAbsen = [], rkBarisSpp = [];
 let hariLiburList = [], rkDataTentor = [], rkBarisTentor = [];
 let riwayatNamaList = [], pnPreview = null;
+let jadwalPersonalList = [];
 let akunList = [], akunAksi = null, hapusTarget = null;
 
 function kelompokRekap(teksKelas) {
@@ -2523,6 +2483,64 @@ async function prosesHapusSiswa() {
     btn.textContent = "Hapus Akun";
     cekKonfirmasiHapus();
   }
+}
+
+/* ===== Jadwal per hari (editor & tampilan) ===== */
+function jamHarianTeks(k) {
+  if (k && k.JadwalPerHari) {
+    return Object.keys(k.JadwalPerHari).map(function (h) {
+      const v = k.JadwalPerHari[h];
+      return v ? `${h} ${v.replace("-", " – ")}` : `${h} (tanpa jam)`;
+    }).join(" · ") || "-";
+  }
+  return k && k.JamMulai && k.JamSelesai ? `${k.JamMulai} – ${k.JamSelesai}` : "-";
+}
+function editorHariHTML(boxId, perHari) {
+  return urutanHariKelas.map(function (h) {
+    const aktif = !!perHari && Object.prototype.hasOwnProperty.call(perHari, h);
+    const nilai = aktif && perHari[h] ? perHari[h].split("-") : ["", ""];
+    return `<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:6px">
+      <label style="font-weight:700"><input type="checkbox" data-hari="${h}" ${aktif ? "checked" : ""} onchange="pratinjauEditorHari('${boxId}')"> ${h}</label>
+      <input type="time" data-mulai="${h}" value="${nilai[0] || ""}" oninput="pratinjauEditorHari('${boxId}')" onchange="pratinjauEditorHari('${boxId}')">
+      <input type="time" data-selesai="${h}" value="${nilai[1] || ""}" oninput="pratinjauEditorHari('${boxId}')" onchange="pratinjauEditorHari('${boxId}')">
+    </div>`;
+  }).join("");
+}
+function ambilEditorHari(boxId) {
+  const box = elId(boxId);
+  return Array.from(box.querySelectorAll("input[data-hari]:checked")).map(function (cb) {
+    const h = cb.dataset.hari;
+    return { hari: h, mulai: box.querySelector(`[data-mulai="${h}"]`).value, selesai: box.querySelector(`[data-selesai="${h}"]`).value };
+  });
+}
+function pratinjauEditorHari(boxId) {
+  const el = elId(boxId === "editHariBox" ? "editPratinjau" : "jpInfo");
+  const isi = ambilEditorHari(boxId);
+  if (!isi.length) { el.textContent = "Pilih minimal satu hari kelas."; return; }
+  const salah = isi.find(x => (x.mulai && !x.selesai) || (!x.mulai && x.selesai) || (x.mulai && x.selesai && menitDariJam(x.selesai) <= menitDariJam(x.mulai)));
+  if (salah) { el.textContent = `⚠ Hari ${salah.hari}: periksa jam mulai dan selesai.`; return; }
+  el.textContent = "Jam hanya pengingat. Absen tersedia pada hari kelas, pukul 06.00 sampai 19.00. " +
+    isi.map(x => `${x.hari}${x.mulai ? " " + x.mulai + "–" + x.selesai : " (tanpa jam)"}`).join(" · ");
+}
+function jadwalHarianSiswa(nama, kode, k, x) {
+  const p = jadwalPersonalList.filter(r => r.Tipe === "Siswa" && normNamaAdm(r.Id) === normNamaAdm(nama) && normKodeAdm(r.Kode) === normKodeAdm(kode));
+  if (p.length) {
+    const per = {};
+    p.forEach(r => { per[r.Hari] = r.JamMulai && r.JamSelesai ? `${r.JamMulai}-${r.JamSelesai}` : ""; });
+    return { hari: Object.keys(per).join(","), teks: jamHarianTeks({ JadwalPerHari: per }), khusus: true };
+  }
+  if (String(x.Hari || "").trim()) return { hari: x.Hari, teks: jamHarianTeks({ JamMulai: x.JamMulai, JamSelesai: x.JamSelesai }), khusus: true };
+  return { hari: k ? k.Hari : "", teks: jamHarianTeks(k), khusus: false };
+}
+function jadwalHarianGuru(idGuru, kode, k, g) {
+  const p = jadwalPersonalList.filter(r => r.Tipe === "Guru" && normKunciAdm(r.Id) === normKunciAdm(idGuru) && normKodeAdm(r.Kode) === normKodeAdm(kode));
+  if (p.length) {
+    const per = {};
+    p.forEach(r => { per[r.Hari] = r.JamMulai && r.JamSelesai ? `${r.JamMulai}-${r.JamSelesai}` : ""; });
+    return { hari: Object.keys(per).join(","), teks: jamHarianTeks({ JadwalPerHari: per }), khusus: true };
+  }
+  if (String(g.Hari || "").trim()) return { hari: g.Hari, teks: jamHarianTeks({ JamMulai: g.JamMulai, JamSelesai: g.JamSelesai }), khusus: true };
+  return { hari: k ? k.Hari : "", teks: jamHarianTeks(k), khusus: false };
 }
 
 function openKelasModal() {

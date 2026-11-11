@@ -1046,6 +1046,24 @@ function tampilkanToast(pesan, galat) {
 }
 function tampilkanBanner(html) { $("banners").innerHTML = html; }
 
+/* ===== Jam per hari ===== */
+function jamHari(k, h) {
+  if (k && k.JadwalPerHari && h && Object.prototype.hasOwnProperty.call(k.JadwalPerHari, h)) {
+    const v = k.JadwalPerHari[h];
+    return v ? v.replace("-", " – ") : "tanpa jam";
+  }
+  return k && k.JamMulai && k.JamSelesai ? `${k.JamMulai} – ${k.JamSelesai}` : "-";
+}
+function jamHarianTeks(k) {
+  if (k && k.JadwalPerHari) {
+    return Object.keys(k.JadwalPerHari).map(function (h) {
+      const v = k.JadwalPerHari[h];
+      return v ? `${h} ${v.replace("-", " – ")}` : `${h} (tanpa jam)`;
+    }).join(" · ") || "-";
+  }
+  return k && k.JamMulai && k.JamSelesai ? `${k.JamMulai} – ${k.JamSelesai}` : "-";
+}
+
 function ambilSesi() { try { return JSON.parse(sessionStorage.getItem("bc_sesi") || "null"); } catch (e) { return null; } }
 function tokenSesi() { const s = ambilSesi(); return s && s.token ? s.token : ""; }
 function sesiBerakhir() {
@@ -1131,11 +1149,11 @@ async function absenGuruSekarang() {
 }
 
 /* ---------- render ---------- */
-function itemJadwal(k, idx, jumlahSiswa) {
+function itemJadwal(k, idx, jumlahSiswa, hari) {
   const w = warnaKelas[idx % warnaKelas.length];
   return `<div class="schedule-item static">
     <div class="class-code" style="background:${w.bg};color:${w.fg}">${escapeHtml(k.Kode)}</div>
-    <div class="schedule-info"><strong>${escapeHtml(k.MataPelajaran)}</strong><small>${escapeHtml(k.JamMulai)} - ${escapeHtml(k.JamSelesai)}${jumlahSiswa !== undefined ? " · " + jumlahSiswa + " siswa" : ""}</small></div>
+    <div class="schedule-info"><strong>${escapeHtml(k.MataPelajaran)}</strong><small>${escapeHtml(jamHari(k, hari || hariIniNama()))}${jumlahSiswa !== undefined ? " · " + jumlahSiswa + " siswa" : ""}</small></div>
     <span class="room">${escapeHtml(k.Ruang || "-")}</span>
   </div>`;
 }
@@ -1178,7 +1196,7 @@ function renderBeranda() {
   $("jadwalHariIni").innerHTML = !dataSudahDimuat ? `<div class="empty-note">Memuat data…</div>`
     : !kelasSaya.length ? `<div class="empty-note">Anda belum ditetapkan ke kelas mana pun. Hubungi admin.</div>`
     : !hariIniKls.length ? `<div class="empty-note">Tidak ada jadwal mengajar hari ini (${hari}).</div>`
-    : hariIniKls.map((k, i) => itemJadwal(k, i, siswaUnikDiKelas(k.Kode).length)).join("");
+    : hariIniKls.map((k, i) => itemJadwal(k, i, siswaUnikDiKelas(k.Kode).length, hariIniNama())).join("");
 }
 
 function renderJadwal() {
@@ -1187,7 +1205,7 @@ function renderJadwal() {
     ? `<div class="setup-banner"><strong>Belum ada kelas yang diampu</strong>Hubungi admin agar Anda ditetapkan ke kelas (sheet GuruKelas).</div>` : "";
   $("jadwalMingguan").innerHTML = urutanHari.map(h => {
     const items = kelasSaya.filter(k => hariCocok(k.Hari, h)).sort((a, b) => String(a.JamMulai).localeCompare(String(b.JamMulai)));
-    const isi = items.length ? items.map((k, i) => itemJadwal(k, i, siswaUnikDiKelas(k.Kode).length)).join("") : `<div class="empty-note">Tidak ada kelas.</div>`;
+    const isi = items.length ? items.map((k, i) => itemJadwal(k, i, siswaUnikDiKelas(k.Kode).length, h)).join("") : `<div class="empty-note">Tidak ada kelas.</div>`;
     return `<div class="card section ${h === hari ? "today" : ""}"><div class="section-title"><h2>${h}</h2>${h === hari ? '<span class="pill green">Hari ini</span>' : ""}</div>${isi}</div>`;
   }).join("");
 }
@@ -1215,7 +1233,7 @@ function renderKelas() {
     return `<div class="card section kelas-card">
       <div class="kelas-head"><h3><span class="class-code" style="display:inline-flex;margin-right:8px;background:${w.bg};color:${w.fg}">${escapeHtml(k.Kode)}</span>${escapeHtml(k.MataPelajaran)}</h3>
         <span class="pill ${hariCocok(k.Hari, hari) ? "green" : ""}">${escapeHtml(k.Hari || "-")}</span></div>
-      <div class="kelas-meta">${escapeHtml(k.JamMulai)} - ${escapeHtml(k.JamSelesai)} · Ruang ${escapeHtml(k.Ruang || "-")} · ${siswa.length} siswa · absensi hari ini diambil dari data admin</div>
+      <div class="kelas-meta">${escapeHtml(jamHarianTeks(k))} · Ruang ${escapeHtml(k.Ruang || "-")} · ${siswa.length} siswa · absensi hari ini diambil dari data admin</div>
       ${barisSiswa}
     </div>`;
   }).join("");
