@@ -944,7 +944,7 @@
 <script type="module">
 /* KONFIGURASI: API_URL = URL Web App Google Apps Script (sama dengan halaman admin).
    Login dilakukan di index.html, jadi di sini tidak perlu konfigurasi Supabase. */
-const API_URL = "https://script.google.com/macros/s/AKfycbzveFIPoxHOyIN56WMahf53WY28_18GbgKnfvBXWECOJvQrB7kJk9VE8glen3tijFvzjA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhIs6n5n58SD9wpiiRck9OmiPHvYrphyqi64OnAJiwqc19NtRj8-fsHn69Y03ktPzljg/exec";
 
 const $ = (id) => document.getElementById(id);
 const VERSI_HALAMAN = "2026-10-19-diagnosa";
@@ -1145,7 +1145,7 @@ function itemJadwal(k, idx, hari) {
     <div class="class-code" style="background:${w.bg};color:${w.fg}">${escapeHtml(k.Kode)}</div>
     <div class="schedule-info"><strong>${escapeHtml(k.MataPelajaran)}</strong><small>${escapeHtml(jamHari(k, hari || hariIniNama()))}</small></div>
     <span class="room">${escapeHtml(k.Ruang)}</span>
-    ${kontrolAbsen(k)}
+    ${(!hari || hari === hariIniNama()) ? kontrolAbsen(k) : ""}
   </div>`;
 }
 
